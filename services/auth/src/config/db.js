@@ -1,0 +1,25 @@
+import mysql from 'mysql2/promise';
+import { config } from './env.js';
+
+export const authPool = mysql.createPool(config.db);
+export const financePool = mysql.createPool(config.financeDb);
+import mysql from 'mysql2/promise';
+import { config } from './env.js';
+
+export const authPool = mysql.createPool({
+  host: config.dbAuth.host,
+  port: config.dbAuth.port,
+  user: config.dbAuth.user,
+  password: config.dbAuth.pass,
+  database: config.dbAuth.name,
+  connectionLimit: 10,
+});
+
+export const finPool = mysql.createPool({
+  host: config.dbFin.host,
+  port: config.dbFin.port,
+  user: config.dbFin.user,
+  password: config.dbFin.pass,
+  database: config.dbFin.name,
+  connectionLimit: 10,
+});
