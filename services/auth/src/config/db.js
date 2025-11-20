@@ -1,11 +1,6 @@
 import mysql from 'mysql2/promise';
 import { config } from './env.js';
 
-export const authPool = mysql.createPool(config.db);
-export const financePool = mysql.createPool(config.financeDb);
-import mysql from 'mysql2/promise';
-import { config } from './env.js';
-
 export const authPool = mysql.createPool({
   host: config.dbAuth.host,
   port: config.dbAuth.port,

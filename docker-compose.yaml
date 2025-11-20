@@ -1,0 +1,145 @@
+version: '3.9'
+
+services:
+  mysql-auth:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+    ports:
+      - "3307:3306"
+    volumes:
+      - auth-db:/var/lib/mysql
+      - ./db/init:/docker-entrypoint-initdb.d
+
+  mysql-finance:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+    ports:
+      - "3308:3306"
+    volumes:
+      - finance-db:/var/lib/mysql
+      - ./db/init:/docker-entrypoint-initdb.d
+
+  mysql-insights:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+    ports:
+      - "3309:3306"
+    volumes:
+      - insights-db:/var/lib/mysql
+      - ./db/init:/docker-entrypoint-initdb.d
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  auth:
+    build: ./services/auth
+    environment:
+      PORT: 8101
+      CORS_ORIGIN: http://localhost:5173
+      JWT_SECRET: secretsecret
+      DB_HOST: mysql-auth
+      DB_PORT: 3306
+      DB_USER: authuser
+      DB_PASS: authpass
+      DB_NAME: authdb
+      FIN_DB_HOST: mysql-finance
+      FIN_DB_PORT: 3306
+      FIN_DB_USER: finuser
+      FIN_DB_PASS: finpass
+      FIN_DB_NAME: financedb
+    depends_on:
+      - mysql-auth
+      - mysql-finance
+
+  users:
+    build: ./services/users
+    environment:
+      PORT: 8102
+      CORS_ORIGIN: http://localhost:5173
+      JWT_SECRET: secretsecret
+      DB_HOST: mysql-finance
+      DB_PORT: 3306
+      DB_USER: finuser
+      DB_PASS: finpass
+      DB_NAME: financedb
+    depends_on:
+      - mysql-finance
+
+  transactions:
+    build: ./services/transactions
+    environment:
+      PORT: 8103
+      CORS_ORIGIN: http://localhost:5173
+      JWT_SECRET: secretsecret
+      DB_HOST: mysql-finance
+      DB_PORT: 3306
+      DB_USER: finuser
+      DB_PASS: finpass
+      DB_NAME: financedb
+    depends_on:
+      - mysql-finance
+
+  budgets:
+    build: ./services/budgets
+    environment:
+      PORT: 8104
+      CORS_ORIGIN: http://localhost:5173
+      JWT_SECRET: secretsecret
+      DB_HOST: mysql-finance
+      DB_PORT: 3306
+      DB_USER: finuser
+      DB_PASS: finpass
+      DB_NAME: financedb
+    depends_on:
+      - mysql-finance
+
+  insights-llm:
+    build: ./services/insights-llm
+    environment:
+      PORT: 8105
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    depends_on:
+      - mysql-insights
+
+  gateway:
+    build: ./gateway
+    environment:
+      PORT: 8080
+      CORS_ORIGIN: http://localhost:5173
+      ROUTE_AUTH: http://auth:8101
+      ROUTE_USERS: http://users:8102
+      ROUTE_TX: http://transactions:8103
+      ROUTE_BUDGETS: http://budgets:8104
+      ROUTE_LLM: http://insights-llm:8105
+    ports:
+      - "8080:8080"
+    depends_on:
+      - auth
+      - users
+      - transactions
+      - budgets
+      - insights-llm
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - gateway
+
+volumes:
+  auth-db:
+  finance-db:
+  insights-db:
+

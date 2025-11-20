@@ -1,0 +1,18 @@
+{
+  "name": "smart-financial-application",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "gateway",
+    "frontend",
+    "services/*"
+  ],
+  "scripts": {
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev:gateway": "npm --prefix gateway run dev",
+    "dev:auth": "npm --prefix services/auth run start",
+    "dev:users": "npm --prefix services/users run start",
+    "dev:transactions": "npm --prefix services/transactions run start",
+    "dev:budgets": "npm --prefix services/budgets run start"
+  }
+}
