@@ -1,0 +1,45 @@
+/* index.css */
+
+/* 1. Import Tailwind's base, components, and utilities */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 2. Custom Styles/Base Overrides */
+
+/* Define the primary color (Indigo-600) */
+:root {
+  --color-primary: #4f46e5;
+}
+
+/* Apply the primary color to elements that use 'bg-primary' or 'text-primary' */
+.bg-primary {
+  background-color: var(--color-primary);
+}
+.text-primary {
+  color: var(--color-primary);
+}
+
+/* General Card style for Login/Register forms */
+.card {
+  @apply bg-white rounded-xl shadow-lg border border-gray-100;
+}
+
+/* Failsafe for rogue icons (Prevents large icon issue) */
+svg:not([class*="w-"]) {
+    width: 1.5rem; 
+    height: 1.5rem;
+}
+
+/* General Text Styles */
+.card-title {
+  @apply text-sm font-medium text-gray-500;
+}
+
+.metric {
+  @apply text-3xl font-bold text-gray-900;
+}
+
+textarea {
+  @apply border border-gray-300 rounded-lg p-3 w-full focus:ring-indigo-500 focus:border-indigo-500;
+}
