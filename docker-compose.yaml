@@ -1,5 +1,3 @@
-version: '3.9'
-
 services:
   mysql-auth:
     image: mysql:8.4
@@ -10,6 +8,11 @@ services:
     volumes:
       - auth-db:/var/lib/mysql
       - ./db/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   mysql-finance:
     image: mysql:8.4
@@ -20,6 +23,11 @@ services:
     volumes:
       - finance-db:/var/lib/mysql
       - ./db/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   mysql-insights:
     image: mysql:8.4
@@ -30,6 +38,11 @@ services:
     volumes:
       - insights-db:/var/lib/mysql
       - ./db/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   redis:
     image: redis:7-alpine
@@ -59,8 +72,16 @@ services:
       FIN_DB_PASS: finpass
       FIN_DB_NAME: financedb
     depends_on:
-      - mysql-auth
-      - mysql-finance
+      mysql-auth:
+        condition: service_healthy
+      mysql-finance:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8101/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   users:
     build: ./services/users
@@ -125,14 +146,28 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - auth
-      - users
-      - transactions
-      - budgets
-      - insights-llm
+      auth:
+        condition: service_healthy
+      users:
+        condition: service_started
+      transactions:
+        condition: service_started
+      budgets:
+        condition: service_started
+      insights-llm:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: "http://localhost:8080"
     ports:
       - "5173:80"
     depends_on:

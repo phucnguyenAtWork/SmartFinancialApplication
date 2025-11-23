@@ -28,7 +28,20 @@ const routes = {
 app.get('/health', (req, res) => res.json({ status: 'ok', service: 'gateway' }));
 
 // API proxies
-app.use('/api/auth', createProxyMiddleware({ target: routes.auth, changeOrigin: true, pathRewrite: { '^/api/auth': '/' } }));
+app.use('/api/auth', createProxyMiddleware({
+  target: routes.auth,          
+  changeOrigin: true,
+  pathRewrite: { '^/api/auth': '/' },
+  timeout: 30000,
+  proxyTimeout: 30000,
+  onProxyReq(proxyReq, req) {
+    console.log('[gateway] auth proxyReq', { url: req.originalUrl, method: req.method });
+  },
+  onError(err, req, res) {
+    console.error('[gateway] auth proxy error', err.code, err.message);
+    if (!res.headersSent) res.status(502).json({ error: 'bad_gateway', detail: err.code || 'proxy_error' });
+  },
+}));
 app.use('/api/users', createProxyMiddleware({ target: routes.users, changeOrigin: true, pathRewrite: { '^/api/users': '/' } }));
 app.use('/api/transactions', createProxyMiddleware({ target: routes.tx, changeOrigin: true, pathRewrite: { '^/api/transactions': '/' } }));
 app.use('/api/budgets', createProxyMiddleware({ target: routes.budgets, changeOrigin: true, pathRewrite: { '^/api/budgets': '/' } }));

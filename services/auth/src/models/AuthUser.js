@@ -1,48 +1,34 @@
-export class AuthUser {
-  constructor({ id = null, email, passwordHash, createdAt = new Date() }) {
-    this.id = id;
-    this.email = email;
-    this.passwordHash = passwordHash;
-    this.createdAt = createdAt instanceof Date ? createdAt : new Date(createdAt);
-  }
-  static fromDb(row) {
-    if (!row) return null;
-    return new AuthUser({ id: row.id, email: row.email, passwordHash: row.password_hash, createdAt: row.created_at });
-  }
-}
 /**
- * AuthUser domain model representing a row in auth_users.
- * Provides simple factory and validation.
+ * AuthUser domain model (phone-based identity).
  */
 export class AuthUser {
-  /**
-   * @param {Object} props
-   * @param {number|undefined} props.id
-   * @param {string} props.email
-   * @param {string} props.passwordHash
-   * @param {Date|undefined} props.createdAt
-   */
-  constructor({ id, email, passwordHash, createdAt }) {
+  constructor({ id, phone, email = null, passwordHash, createdAt }) {
     this.id = id ?? null;
-    this.email = email;
+    this.phone = phone;
+    this.email = email ?? null;
     this.passwordHash = passwordHash;
-    this.createdAt = createdAt ?? null;
+    this.createdAt = createdAt ? (createdAt instanceof Date ? createdAt : new Date(createdAt)) : null;
     this.validate();
   }
   validate() {
-    if (!this.email || !/^[^@]+@[^@]+\.[^@]+$/.test(this.email)) {
-      throw new Error('Invalid email');
+    if (!this.phone || typeof this.phone !== 'string' || this.phone.length < 4) {
+      throw new Error('Invalid phone');
     }
     if (!this.passwordHash || this.passwordHash.length < 20) {
       throw new Error('passwordHash too short (expect bcrypt)');
     }
+    if (this.email && !/^[^@]+@[^@]+\.[^@]+$/.test(this.email)) {
+      throw new Error('Invalid email format');
+    }
   }
   static fromDb(row) {
+    if (!row) return null;
     return new AuthUser({
       id: row.id,
-      email: row.email,
+      phone: row.phone,
+      email: row.email ?? null,
       passwordHash: row.password_hash,
-      createdAt: row.created_at ? new Date(row.created_at) : null,
+      createdAt: row.created_at,
     });
   }
 }

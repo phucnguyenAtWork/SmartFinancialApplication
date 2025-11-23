@@ -27,21 +27,29 @@ export function AuthProvider({ children }) {
   };
 
   const login = async ({ phone, password }) => {
-    const data = await apiRequest('/api/auth/login', {
-      method: 'POST',
-      body: { phone, password },
-    });
-    // assume { token, user }
-    setSession(data.token, data.user);
+    try {
+      const data = await apiRequest('/api/auth/login', {
+        method: 'POST',
+        body: { phone, password },
+      });
+      setSession(data.token, data.user);
+    } catch (e) {
+      console.error('[auth] login error', e.name, e.status, e.message, e.data);
+      throw e;
+    }
   };
 
   const register = async ({ name, phone, password }) => {
-    const data = await apiRequest('/api/auth/register', {
-      method: 'POST',
-      body: { name, phone, password },
-    });
-    // assume { token, user }
-    setSession(data.token, data.user);
+    try {
+      const data = await apiRequest('/api/auth/register', {
+        method: 'POST',
+        body: { name, phone, password },
+      });
+      setSession(data.token, data.user);
+    } catch (e) {
+      console.error('[auth] register error', e.name, e.status, e.message, e.data);
+      throw e;
+    }
   };
 
   const logout = () => {

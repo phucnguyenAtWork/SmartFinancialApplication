@@ -8,6 +8,7 @@
     "services/*"
   ],
   "scripts": {
+  "dev": "npm-run-all -p dev:gateway dev:frontend",
     "dev:frontend": "npm --prefix frontend run dev",
     "dev:gateway": "npm --prefix gateway run dev",
     "dev:auth": "npm --prefix services/auth run start",

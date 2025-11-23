@@ -8,6 +8,8 @@ export const authPool = mysql.createPool({
   password: config.dbAuth.pass,
   database: config.dbAuth.name,
   connectionLimit: 10,
+  connectTimeout: 8000,
+  queueLimit: 0,
 });
 
 export const finPool = mysql.createPool({
@@ -17,4 +19,6 @@ export const finPool = mysql.createPool({
   password: config.dbFin.pass,
   database: config.dbFin.name,
   connectionLimit: 10,
+  connectTimeout: 8000,
+  queueLimit: 0,
 });
