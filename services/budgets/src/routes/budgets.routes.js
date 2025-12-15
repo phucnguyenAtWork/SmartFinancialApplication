@@ -4,95 +4,109 @@ import { listBudgets, getBudget, createBudget, deleteBudget } from '../controlle
 
 export const budgetsRouter = Router();
 
-/** @openapi */
-budgetsRouter.get('/budgets/health', (req, res) => res.json({ status: 'ok', service: 'budgets' }));
-
-/** @openapi */
-budgetsRouter.get('/budgets/budgets', requireAuth, listBudgets);
-/** @openapi */
-budgetsRouter.get('/budgets/budgets/:id', requireAuth, getBudget);
-/** @openapi */
-budgetsRouter.post('/budgets/budgets', requireAuth, createBudget);
-/** @openapi */
-budgetsRouter.delete('/budgets/budgets/:id', requireAuth, deleteBudget);
-import { Router } from 'express';
-import { requireAuth } from '../middlewares/auth.js';
-import { listBudgets, getBudget, createBudget, deleteBudget } from '../controllers/budgets.controller.js';
-
-export const budgetsRouter = Router();
+/**
+ * @openapi
+ * /:
+ * get:
+ * summary: List budgets for current user
+ * tags: [Budgets]
+ * security:
+ * - bearerAuth: []
+ * responses:
+ * 200:
+ * description: OK
+ * 401:
+ * description: Unauthorized
+ */
+// FIXED: Changed '/budgets' to '/'
+budgetsRouter.get('/', requireAuth, listBudgets);
 
 /**
  * @openapi
- * /budgets:
- *   get:
- *     summary: List budgets for current user
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200: { description: OK }
- *       401: { description: Unauthorized }
+ * /{id}:
+ * get:
+ * summary: Get budget by id
+ * tags: [Budgets]
+ * security:
+ * - bearerAuth: []
+ * parameters:
+ * - in: path
+ * name: id
+ * required: true
+ * schema:
+ * type: integer
+ * responses:
+ * 200:
+ * description: OK
+ * 401:
+ * description: Unauthorized
+ * 404:
+ * description: Not found
  */
-budgetsRouter.get('/budgets', requireAuth, listBudgets);
+// FIXED: Changed '/budgets/:id' to '/:id'
+budgetsRouter.get('/:id', requireAuth, getBudget);
 
 /**
  * @openapi
- * /budgets/{id}:
- *   get:
- *     summary: Get budget by id
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *     responses:
- *       200: { description: OK }
- *       401: { description: Unauthorized }
- *       404: { description: Not found }
+ * /:
+ * post:
+ * summary: Create a budget
+ * tags: [Budgets]
+ * security:
+ * - bearerAuth: []
+ * requestBody:
+ * required: true
+ * content:
+ * application/json:
+ * schema:
+ * type: object
+ * required: [amount, period, startDate, endDate]
+ * properties:
+ * categoryId:
+ * type: integer
+ * amount:
+ * type: number
+ * period:
+ * type: string
+ * enum: [Weekly, Monthly, Yearly]
+ * startDate:
+ * type: string
+ * format: date
+ * endDate:
+ * type: string
+ * format: date
+ * responses:
+ * 201:
+ * description: Created
+ * 400:
+ * description: Bad request
+ * 401:
+ * description: Unauthorized
  */
-budgetsRouter.get('/budgets/:id', requireAuth, getBudget);
+// FIXED: Changed '/budgets' to '/'
+budgetsRouter.post('/', requireAuth, createBudget);
 
 /**
  * @openapi
- * /budgets:
- *   post:
- *     summary: Create a budget
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [name, period, limitAmount, currency]
- *             properties:
- *               name: { type: string }
- *               period: { type: string, enum: [weekly, monthly, yearly] }
- *               limitAmount: { type: number }
- *               currency: { type: string, minLength: 3, maxLength: 3 }
- *               startsOn: { type: string, format: date }
- *     responses:
- *       201: { description: Created }
- *       400: { description: Bad request }
- *       401: { description: Unauthorized }
+ * /{id}:
+ * delete:
+ * summary: Delete a budget
+ * tags: [Budgets]
+ * security:
+ * - bearerAuth: []
+ * parameters:
+ * - in: path
+ * name: id
+ * required: true
+ * schema:
+ * type: integer
+ * responses:
+ * 204:
+ * description: No Content
+ * 401:
+ * description: Unauthorized
+ * 404:
+ * description: Not found
  */
-budgetsRouter.post('/budgets', requireAuth, createBudget);
-
-/**
- * @openapi
- * /budgets/{id}:
- *   delete:
- *     summary: Delete a budget
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *     responses:
- *       204: { description: No Content }
- *       401: { description: Unauthorized }
- *       404: { description: Not found }
- */
-budgetsRouter.delete('/budgets/:id', requireAuth, deleteBudget);
+// FIXED: Changed '/budgets/:id' to '/:id'
+budgetsRouter.delete('/:id', requireAuth, deleteBudget);

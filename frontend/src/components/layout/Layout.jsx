@@ -20,32 +20,14 @@ export function Layout({ children }) {
           <div>
             <div className="mb-6 flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-600 text-[12px] font-bold text-white">↺</div>
-              <span className="text-xl font-semibold text-slate-900">Cuddle</span>
+              <span className="text-xl font-semibold text-slate-900">iBudget</span>
             </div>
             <div className="mb-8 space-y-1">
               <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Main Menu</div>
               <SidebarLink to="/" active={pathname === '/'}>Home</SidebarLink>
-              <SidebarLink to="/messages" badge="26" active={pathname === '/messages'}>Message</SidebarLink>
               <SidebarLink to="/analytics" active={pathname === '/analytics'}>Analytics</SidebarLink>
               <SidebarLink to="/transactions" active={pathname === '/transactions'}>Transaction</SidebarLink>
-              <SidebarLink to="/payment" badge="12" active={pathname === '/payment'}>Payment</SidebarLink>
-            </div>
-            <div className="space-y-1">
-              <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Account Management</div>
-              <details open>
-                <summary className="flex cursor-pointer items-center justify-between rounded-xl bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700">
-                  <span className="flex items-center gap-2">
-                    <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-indigo-100 text-[10px] text-indigo-700">▸</span>
-                    Activity
-                  </span>
-                  <span className="text-[10px] text-gray-500">▼</span>
-                </summary>
-                <div className="mt-1 space-y-1 pl-7 text-sm text-gray-600">
-                  <Link to="/balance" className="block rounded-lg px-2 py-1 hover:bg-gray-100">Balance</Link>
-                  <Link to="/spending" className="block rounded-lg px-2 py-1 hover:bg-gray-100">Spending</Link>
-                  <Link to="/refund" className="block rounded-lg px-2 py-1 hover:bg-gray-100">Refund</Link>
-                </div>
-              </details>
+              <SidebarLink to="/budget" active={pathname === '/budget'}>Budget</SidebarLink>
             </div>
           </div>
           <div className="space-y-1 border-t border-slate-100 pt-4">

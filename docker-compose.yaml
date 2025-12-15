@@ -1,13 +1,15 @@
+version: '3.9'
+
 services:
   mysql-auth:
     image: mysql:8.4
     environment:
-      MYSQL_ROOT_PASSWORD: rootpass
+      - MYSQL_ROOT_PASSWORD=rootpass
     ports:
       - "3307:3306"
     volumes:
-      - auth-db:/var/lib/mysql
-      - ./db/init:/docker-entrypoint-initdb.d
+    - auth-db:/var/lib/mysql
+    - ./docker/mysql/init/auth:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 5s
@@ -17,12 +19,12 @@ services:
   mysql-finance:
     image: mysql:8.4
     environment:
-      MYSQL_ROOT_PASSWORD: rootpass
+      - MYSQL_ROOT_PASSWORD=rootpass
     ports:
       - "3308:3306"
     volumes:
-      - finance-db:/var/lib/mysql
-      - ./db/init:/docker-entrypoint-initdb.d
+    - finance-db:/var/lib/mysql
+    - ./docker/mysql/init/finance:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 5s
@@ -32,17 +34,18 @@ services:
   mysql-insights:
     image: mysql:8.4
     environment:
-      MYSQL_ROOT_PASSWORD: rootpass
+      - MYSQL_ROOT_PASSWORD=rootpass
     ports:
       - "3309:3306"
     volumes:
-      - insights-db:/var/lib/mysql
-      - ./db/init:/docker-entrypoint-initdb.d
+    - insights-db:/var/lib/mysql
+    - ./docker/mysql/init/insights:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 5s
       timeout: 3s
       retries: 10
+
 
   redis:
     image: redis:7-alpine
@@ -58,19 +61,21 @@ services:
   auth:
     build: ./services/auth
     environment:
-      PORT: 8101
-      CORS_ORIGIN: http://localhost:5173
-      JWT_SECRET: secretsecret
-      DB_HOST: mysql-auth
-      DB_PORT: 3306
-      DB_USER: authuser
-      DB_PASS: authpass
-      DB_NAME: authdb
-      FIN_DB_HOST: mysql-finance
-      FIN_DB_PORT: 3306
-      FIN_DB_USER: finuser
-      FIN_DB_PASS: finpass
-      FIN_DB_NAME: financedb
+      - PORT=8101
+      - CORS_ORIGIN=http://localhost:5173
+      - JWT_SECRET=secretsecret
+      - AUTH_DISABLED=1
+      - DEV_FINANCE_USER_ID=1
+      - DB_HOST=mysql-auth
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASS=rootpass
+      - DB_NAME=authdb
+      - FIN_DB_HOST=mysql-finance
+      - FIN_DB_PORT=3306
+      - FIN_DB_USER=root
+      - FIN_DB_PASS=rootpass
+      - FIN_DB_NAME=financedb
     depends_on:
       mysql-auth:
         condition: service_healthy
@@ -86,63 +91,73 @@ services:
   users:
     build: ./services/users
     environment:
-      PORT: 8102
-      CORS_ORIGIN: http://localhost:5173
-      JWT_SECRET: secretsecret
-      DB_HOST: mysql-finance
-      DB_PORT: 3306
-      DB_USER: finuser
-      DB_PASS: finpass
-      DB_NAME: financedb
+      - PORT=8102
+      - CORS_ORIGIN=http://localhost:5173
+      - JWT_SECRET=secretsecret
+      - AUTH_DISABLED=1
+      - DEV_FINANCE_USER_ID=1
+      - DB_HOST=mysql-finance
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASS=rootpass
+      - DB_NAME=financedb
     depends_on:
       - mysql-finance
 
   transactions:
     build: ./services/transactions
     environment:
-      PORT: 8103
-      CORS_ORIGIN: http://localhost:5173
-      JWT_SECRET: secretsecret
-      DB_HOST: mysql-finance
-      DB_PORT: 3306
-      DB_USER: finuser
-      DB_PASS: finpass
-      DB_NAME: financedb
+      - PORT=8103
+      - CORS_ORIGIN=http://localhost:5173
+      - JWT_SECRET=secretsecret
+      - AUTH_DISABLED=1
+      - DEV_FINANCE_USER_ID=1
+      - DB_HOST=mysql-finance
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASS=rootpass
+      - DB_NAME=financedb
     depends_on:
       - mysql-finance
 
   budgets:
+
     build: ./services/budgets
     environment:
-      PORT: 8104
-      CORS_ORIGIN: http://localhost:5173
-      JWT_SECRET: secretsecret
-      DB_HOST: mysql-finance
-      DB_PORT: 3306
-      DB_USER: finuser
-      DB_PASS: finpass
-      DB_NAME: financedb
+      - PORT=8104
+      - CORS_ORIGIN=http://localhost:5173
+      - JWT_SECRET=secretsecret
+      - AUTH_DISABLED=1
+      - DEV_FINANCE_USER_ID=1
+      - DB_HOST=mysql-finance
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASS=rootpass
+      - DB_NAME=financedb
     depends_on:
       - mysql-finance
 
   insights-llm:
     build: ./services/insights-llm
     environment:
-      PORT: 8105
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      - PORT=8105
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
     depends_on:
       - mysql-insights
 
   gateway:
     build: ./gateway
     environment:
-      PORT: 8080
-      CORS_ORIGIN: http://localhost:5173
-      ROUTE_AUTH: http://auth:8101
-      ROUTE_USERS: http://users:8102
-      ROUTE_TX: http://transactions:8103
-      ROUTE_BUDGETS: http://budgets:8104
-      ROUTE_LLM: http://insights-llm:8105
+      - PORT=8080
+      - CORS_ORIGIN=http://localhost:5173
+      - ROUTE_AUTH=http://auth:8101
+      - ROUTE_USERS=http://users:8102
+      - ROUTE_TX=http://transactions:8103
+      - ROUTE_BUDGETS=http://budgets:8104
+      - ROUTE_LLM=http://insights-llm:8105
+      - AUTH_DISABLED=1
+      - DEV_FINANCE_USER_ID=1
+  
     ports:
       - "8080:8080"
     depends_on:

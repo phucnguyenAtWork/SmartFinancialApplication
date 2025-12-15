@@ -9,14 +9,16 @@ import { CardsPanel } from './dashboard/CardsPanel';
 import { BankAccountCard } from './dashboard/BankAccountCard';
 import { DailyLimitCard } from './dashboard/DailyLimitCard';
 import { Placeholder } from './common/Placeholder';
-import { Card } from './common/Card';
+import { TransactionsPage } from './transactions/TransactionsPage';
 import { AuthProvider } from './auth/AuthContext';
+import { Dashboard as NewDashboard } from './dashboard/Dashboard.jsx';
 import { Login } from './auth/Login';
 import { Logout } from './auth/Logout';
 import { ProtectedRoute } from './auth/ProtectedRoute';
 import { Signup } from './auth/Signup';
 import { CardOnboarding } from './onboarding/CardOnboarding';
 import { useAuth } from './auth/AuthContext';
+import { BudgetPage } from './budget/BudgetPage.jsx';
 
 function Dashboard() {
   return (
@@ -44,9 +46,9 @@ function Dashboard() {
 export function AppShell() {
   const RequireOnboarded = ({ children }) => {
     const { onboarded } = useAuth();
-    // If not onboarded, show onboarding instead of dashboard content
     return onboarded ? children : <Layout><CardOnboarding /></Layout>;
   };
+  const authDisabled = import.meta.env.VITE_AUTH_DISABLED === '1';
   return (
     <AuthProvider>
       <Routes>
@@ -59,18 +61,20 @@ export function AppShell() {
         <Route
           path="/"
           element={
-            <ProtectedRoute>
-              <RequireOnboarded>
-                <Layout>
-                  <Dashboard />
-                </Layout>
-              </RequireOnboarded>
-            </ProtectedRoute>
+            authDisabled ? (
+              <Layout>
+                <NewDashboard />
+              </Layout>
+            ) : (
+              <ProtectedRoute>
+                <RequireOnboarded>
+                  <Layout>
+                    <Dashboard />
+                  </Layout>
+                </RequireOnboarded>
+              </ProtectedRoute>
+            )
           }
-        />
-        <Route
-          path="/messages"
-          element={<ProtectedRoute><Layout><Placeholder title="Messages Inbox" /></Layout></ProtectedRoute>}
         />
         <Route
           path="/analytics"
@@ -78,23 +82,11 @@ export function AppShell() {
         />
         <Route
           path="/transactions"
-          element={<ProtectedRoute><Layout><Placeholder title="Transactions" /></Layout></ProtectedRoute>}
+          element={<ProtectedRoute><Layout><TransactionsPage /></Layout></ProtectedRoute>}
         />
         <Route
-          path="/payment"
-          element={<ProtectedRoute><Layout><Placeholder title="Payment History" /></Layout></ProtectedRoute>}
-        />
-        <Route
-          path="/balance"
-          element={<ProtectedRoute><Layout><Placeholder title="Account Balance" /></Layout></ProtectedRoute>}
-        />
-        <Route
-          path="/spending"
-          element={<ProtectedRoute><Layout><Placeholder title="Spending Analysis" /></Layout></ProtectedRoute>}
-        />
-        <Route
-          path="/refund"
-          element={<ProtectedRoute><Layout><Placeholder title="Refund Management" /></Layout></ProtectedRoute>}
+          path="/budget"
+          element={<ProtectedRoute><Layout><BudgetPage /></Layout></ProtectedRoute>}
         />
         <Route
           path="/settings"

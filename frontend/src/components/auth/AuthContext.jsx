@@ -71,6 +71,13 @@ export function AuthProvider({ children }) {
   }
 
   useEffect(() => {}, [token, user, onboarded, card]);
+  // Dev bypass: auto-authenticate if VITE_AUTH_DISABLED=1
+  useEffect(() => {
+    if (import.meta.env.VITE_AUTH_DISABLED === '1' && !token) {
+      const dummy = { id: 0, name: 'Dev User', phone: '0000000000', bypass: true };
+      setSession('dev-bypass-token', dummy);
+    }
+  }, [token]);
   return (
     <AuthContext.Provider value={{ token, user, card, onboarded, isAuthed: !!token, login, register, logout, completeOnboarding }}>
       {children}

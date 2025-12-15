@@ -31,7 +31,7 @@ app.get('/health', (req, res) => res.json({ status: 'ok', service: 'gateway' }))
 app.use('/api/auth', createProxyMiddleware({
   target: routes.auth,          
   changeOrigin: true,
-  pathRewrite: { '^/api/auth': '/' },
+  // pathRewrite: { '^/api/auth': '/' },
   timeout: 30000,
   proxyTimeout: 30000,
   onProxyReq(proxyReq, req) {
@@ -42,40 +42,67 @@ app.use('/api/auth', createProxyMiddleware({
     if (!res.headersSent) res.status(502).json({ error: 'bad_gateway', detail: err.code || 'proxy_error' });
   },
 }));
-app.use('/api/users', createProxyMiddleware({ target: routes.users, changeOrigin: true, pathRewrite: { '^/api/users': '/' } }));
-app.use('/api/transactions', createProxyMiddleware({ target: routes.tx, changeOrigin: true, pathRewrite: { '^/api/transactions': '/' } }));
-app.use('/api/budgets', createProxyMiddleware({ target: routes.budgets, changeOrigin: true, pathRewrite: { '^/api/budgets': '/' } }));
-app.use('/api/insights', createProxyMiddleware({ target: routes.llm, changeOrigin: true, pathRewrite: { '^/api/insights': '/' } }));
+app.use('/api/users', createProxyMiddleware({
+   target: routes.users, 
+   changeOrigin: true, 
+  //  pathRewrite: { '^/api/users': '/' } 
+  }));
+app.use('/api/transactions', createProxyMiddleware({ 
+  target: routes.tx, 
+  changeOrigin: true, 
+  // pathRewrite: { '^/api/transactions': '/' } 
+}));
+app.use('/api/budgets', createProxyMiddleware({ 
+  target: routes.budgets, 
+  changeOrigin: true, 
+  // pathRewrite: { '^/api/budgets': '/' } 
+}));
+app.use('/api/insights', createProxyMiddleware({ 
+  target: routes.llm, 
+  changeOrigin: true, 
+  // pathRewrite: { '^/api/insights': '/' } 
+}));
 
-// Spec endpoints (no proxy rewrite quirks); Node 20+ has global fetch
-const forwardOpenApi = (base) => async (req, res) => {
+// Spec endpoints with injected servers base so Swagger UI "Try it out" hits correct /api/* paths
+const forwardOpenApi = (base, prefix) => async (req, res) => {
   try {
     const r = await fetch(`${base}/openapi.json`);
     const text = await r.text();
     res.status(r.status);
-    // Try to pass JSON if possible; otherwise raw
-    try { res.type('application/json').send(JSON.parse(text)); }
-    catch { res.type('application/json').send(text); }
+    try {
+      const json = JSON.parse(text);
+      // Inject servers if missing or ensure desired prefix present
+      const existingServers = Array.isArray(json.servers) ? json.servers : [];
+      const hasPrefix = existingServers.some(s => s.url === prefix);
+      if (!hasPrefix) {
+        json.servers = [{ url: prefix }, ...existingServers];
+      }
+      res.type('application/json').send(json);
+    } catch {
+      // Fallback raw
+      res.type('application/json').send(text);
+    }
   } catch (e) {
     res.status(502).json({ error: 'bad_gateway', detail: String(e) });
   }
 };
-app.get('/specs/auth', forwardOpenApi(routes.auth));
-app.get('/specs/users', forwardOpenApi(routes.users));
-app.get('/specs/transactions', forwardOpenApi(routes.tx));
-app.get('/specs/budgets', forwardOpenApi(routes.budgets));
-app.get('/specs/insights', forwardOpenApi(routes.llm));
+app.get('/specs/auth', forwardOpenApi(routes.auth, '/api/auth'));
+app.get('/specs/users', forwardOpenApi(routes.users, '/api/users'));
+app.get('/specs/transactions', forwardOpenApi(routes.tx, '/api/transactions'));
+app.get('/specs/budgets', forwardOpenApi(routes.budgets, '/api/budgets'));
+app.get('/specs/insights', forwardOpenApi(routes.llm, '/api/insights'));
 
 // Aggregated Swagger UI
+// Use modified spec endpoints (with servers injected)
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(null, {
   explorer: false,
   swaggerOptions: {
     urls: [
-  { url: '/api/auth/openapi.json', name: 'Auth' },
-  { url: '/api/users/openapi.json', name: 'Users' },
-  { url: '/api/transactions/openapi.json', name: 'Transactions' },
-  { url: '/api/budgets/openapi.json', name: 'Budgets' },
-  { url: '/api/insights/openapi.json', name: 'Insights LLM' },
+      { url: '/specs/auth', name: 'Auth' },
+      { url: '/specs/users', name: 'Users' },
+      { url: '/specs/transactions', name: 'Transactions' },
+      { url: '/specs/budgets', name: 'Budgets' },
+      { url: '/specs/insights', name: 'Insights LLM' },
     ],
     docExpansion: 'none',
   }

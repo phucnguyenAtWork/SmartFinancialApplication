@@ -1,0 +1,102 @@
+-- 2. FINANCE SERVICE (The Core Ledger)
+CREATE DATABASE IF NOT EXISTS financedb;
+USE financedb;
+-- Users Mirror (For Foreign Key Integrity within Finance Service)
+CREATE TABLE IF NOT EXISTS users (
+  id BIGINT PRIMARY KEY, 
+  phone VARCHAR(32) UNIQUE,
+  email VARCHAR(255) UNIQUE,
+  name VARCHAR(255),
+  currency VARCHAR(3) DEFAULT 'VND',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- CATEGORIES
+CREATE TABLE IF NOT EXISTS categories (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT,
+  name VARCHAR(128) NOT NULL,
+  icon VARCHAR(50),
+  type ENUM('EXPENSE', 'INCOME') DEFAULT 'EXPENSE',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- ACCOUNTS
+CREATE TABLE IF NOT EXISTS accounts (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  type ENUM('CASH', 'BANK', 'WALLET', 'CREDIT') DEFAULT 'CASH',
+  currency VARCHAR(8) DEFAULT 'VND',
+  friction_level ENUM('HIGH', 'MEDIUM', 'LOW') DEFAULT 'LOW',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- BUDGETS
+CREATE TABLE IF NOT EXISTS budgets (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT NOT NULL,
+  category_id BIGINT NOT NULL,
+  amount_limit DECIMAL(14,2) NOT NULL,
+  period ENUM('MONTHLY', 'WEEKLY') DEFAULT 'MONTHLY',
+  alert_threshold DECIMAL(3,2) DEFAULT 0.80,
+  start_date DATE NOT NULL,
+  end_date DATE NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
+);
+
+-- MERCHANTS
+CREATE TABLE IF NOT EXISTS merchants (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(255) NOT NULL UNIQUE
+);
+
+-- TRANSACTIONS
+CREATE TABLE IF NOT EXISTS transactions (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT NOT NULL,
+  type ENUM('EXPENSE','INCOME','TRANSFER') NOT NULL,
+  amount DECIMAL(14,2) NOT NULL,
+  currency VARCHAR(8) DEFAULT 'VND',
+  description VARCHAR(512),
+  category_id BIGINT,
+  merchant_id BIGINT,
+  account_id BIGINT,
+  to_account_id BIGINT,
+  essential BOOLEAN DEFAULT FALSE,
+  tags JSON,
+  occurred_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (category_id) REFERENCES categories(id),
+  FOREIGN KEY (merchant_id) REFERENCES merchants(id),
+  FOREIGN KEY (account_id) REFERENCES accounts(id),
+  FOREIGN KEY (to_account_id) REFERENCES accounts(id),
+  INDEX idx_rag_history (user_id, occurred_at DESC)
+);
+
+-- RECURRING RULES
+CREATE TABLE IF NOT EXISTS recurring_rules (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT NOT NULL,
+  category_id BIGINT,
+  merchant_id BIGINT,
+  amount DECIMAL(14,2),
+  frequency ENUM('DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'),
+  next_due_date DATE,
+  is_active BOOLEAN DEFAULT TRUE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+-- SYSTEM ALERTS
+CREATE TABLE IF NOT EXISTS alerts (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT NOT NULL,
+  type ENUM('BUDGET_OVERRUN', 'BILL_REMINDER', 'AI_ADVICE'),
+  message TEXT,
+  is_read BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);

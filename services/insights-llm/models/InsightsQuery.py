@@ -1,4 +1,3 @@
-"""InsightsQuery domain model for insightsdb.insights_queries."""
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
