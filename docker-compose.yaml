@@ -169,7 +169,7 @@ services:
   insights-llm:
     build: ./services/insights-llm
     env_file:
-      - ./services/insights-llm/.env
+      - .env
     environment:
       - PORT=8105
       - DATABASES_URL=mysql://root:rootpass@mysql-finance:3306/financedb
