@@ -3,12 +3,12 @@ import { Card } from '../common/Card';
 
 export function YearlySummary() {
   const data = [
-    { year: 2016, h1: 60, h2: 80 },
-    { year: 2018, h1: 80, h2: 95 },
-    { year: 2019, h1: 70, h2: 90 },
-    { year: 2020, h1: 85, h2: 110 },
-    { year: 2021, h1: 110, h2: 135 },
-    { year: 2022, h1: 125, h2: 155 },
+    { year: 2020, h1: 60, h2: 80 },
+    { year: 2021, h1: 80, h2: 95 },
+    { year: 2022, h1: 70, h2: 90 },
+    { year: 2023, h1: 85, h2: 110 },
+    { year: 2024, h1: 110, h2: 135 },
+    { year: 2025, h1: 125, h2: 155 },
   ];
   return (
     <Card>

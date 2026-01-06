@@ -1,6 +1,5 @@
-version: '3.9'
-
 services:
+  # --- DATABASES ---
   mysql-auth:
     image: mysql:8.4
     environment:
@@ -8,13 +7,15 @@ services:
     ports:
       - "3307:3306"
     volumes:
-    - auth-db:/var/lib/mysql
-    - ./docker/mysql/init/auth:/docker-entrypoint-initdb.d
+      - auth-db:/var/lib/mysql
+      - ./docker/mysql/init/auth:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 5s
       timeout: 3s
       retries: 10
+    networks:
+      - app-network
 
   mysql-finance:
     image: mysql:8.4
@@ -23,13 +24,15 @@ services:
     ports:
       - "3308:3306"
     volumes:
-    - finance-db:/var/lib/mysql
-    - ./docker/mysql/init/finance:/docker-entrypoint-initdb.d
+      - finance-db:/var/lib/mysql
+      - ./docker/mysql/init/finance:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 5s
       timeout: 3s
       retries: 10
+    networks:
+      - app-network
 
   mysql-insights:
     image: mysql:8.4
@@ -38,26 +41,33 @@ services:
     ports:
       - "3309:3306"
     volumes:
-    - insights-db:/var/lib/mysql
-    - ./docker/mysql/init/insights:/docker-entrypoint-initdb.d
+      - ./services/insights-llm:/app
+      - ./docker/mysql/init/insights:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 5s
       timeout: 3s
       retries: 10
-
+    networks:
+      - app-network
 
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+    networks:
+      - app-network
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
+    container_name: rabbitmq
     ports:
       - "5672:5672"
       - "15672:15672"
+    networks:
+      - app-network
 
+  # --- MICROSERVICES ---
   auth:
     build: ./services/auth
     environment:
@@ -87,6 +97,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+    networks:
+      - app-network
 
   users:
     build: ./services/users
@@ -103,6 +115,8 @@ services:
       - DB_NAME=financedb
     depends_on:
       - mysql-finance
+    networks:
+      - app-network
 
   transactions:
     build: ./services/transactions
@@ -117,11 +131,19 @@ services:
       - DB_USER=root
       - DB_PASS=rootpass
       - DB_NAME=financedb
+      - RABBITMQ_URL=amqp://rabbitmq:5672
+    ports:
+      - "8103:8103"
+    volumes:
+      - ./services/transactions:/app      # Syncs code changes
+      - /app/node_modules                 # Protects installed dependencies
     depends_on:
       - mysql-finance
+      - rabbitmq
+    networks:
+      - app-network
 
   budgets:
-
     build: ./services/budgets
     environment:
       - PORT=8104
@@ -134,16 +156,35 @@ services:
       - DB_USER=root
       - DB_PASS=rootpass
       - DB_NAME=financedb
+      - RABBITMQ_URL=amqp://rabbitmq:5672
+    volumes:
+      - ./services/budgets:/app           # Syncs code changes
+      - /app/node_modules                 # Protects installed dependencies
     depends_on:
       - mysql-finance
+      - rabbitmq
+    networks:
+      - app-network
 
   insights-llm:
     build: ./services/insights-llm
+    env_file:
+      - ./services/insights-llm/.env
     environment:
       - PORT=8105
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - DATABASES_URL=mysql://root:rootpass@mysql-finance:3306/financedb
+      - INSIGHTS_DB_URL=mysql://root:rootpass@mysql-insights:3306/insightsdb
+      - RABBITMQ_URL=amqp://rabbitmq:5672
+    ports:
+      - "8105:8105"
+    volumes:
+      - ./services/insights-llm:/app      # Syncs code changes
     depends_on:
+      - mysql-finance
       - mysql-insights
+      - rabbitmq
+    networks:
+      - app-network
 
   gateway:
     build: ./gateway
@@ -157,9 +198,11 @@ services:
       - ROUTE_LLM=http://insights-llm:8105
       - AUTH_DISABLED=1
       - DEV_FINANCE_USER_ID=1
-  
     ports:
       - "8080:8080"
+    volumes:
+      - ./gateway:/app
+      - /app/node_modules
     depends_on:
       auth:
         condition: service_healthy
@@ -177,6 +220,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+    networks:
+      - app-network
 
   frontend:
     build:
@@ -187,9 +232,14 @@ services:
       - "5173:80"
     depends_on:
       - gateway
+    networks:
+      - app-network
 
 volumes:
   auth-db:
   finance-db:
   insights-db:
 
+networks:
+  app-network:
+    driver: bridge

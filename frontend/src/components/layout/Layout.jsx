@@ -39,14 +39,10 @@ export function Layout({ children }) {
           <header className="sticky top-0 z-10 flex h-16 sm:h-20 items-center justify-between border-b bg-white px-4 sm:px-8">
             <h1 className="text-2xl font-semibold text-slate-900">Dashboard</h1>
             <div className="flex items-center gap-4">
-              <button className="hidden sm:flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-gray-500 hover:bg-slate-50"><span className="text-[13px]">🔍</span></button>
-              <button className="hidden sm:flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-gray-500 hover:bg-slate-50"><span className="text-[13px]">🔔</span></button>
-              <button className="hidden md:inline-flex rounded-full border border-indigo-200 px-4 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50">Upgrade Now</button>
               <div className="flex items-center gap-2">
-                <img src="https://i.pravatar.cc/40?img=5" alt="User" className="h-8 w-8 rounded-full" />
+                <img src="https://picsum.photos/id/237/200/300" alt="User" className="h-8 w-8 rounded-full" />
                 <span className="text-sm font-medium text-slate-800">{user?.name || 'Guest'}</span>
                 {user?.phone && <span className="text-[11px] text-gray-500">({user.phone})</span>}
-                <span className="text-[10px] text-gray-500">▼</span>
               </div>
             </div>
           </header>

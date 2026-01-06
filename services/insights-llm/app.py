@@ -1,47 +1,100 @@
 import os
+import logging
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
+from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
+from pydantic import BaseModel
+from typing import Optional, Dict
+from datetime import datetime
 
+# Import the NEW Gemini RAG Pipeline
+from rag_pipeline import RAGPipeline
+from database import DatabaseManager
+
+# Setup
+load_dotenv()
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+app = FastAPI(title="Insights LLM Service (Gemini)", version="1.0.0")
+
+# CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[os.getenv("CORS_ORIGIN", "http://localhost:5173")],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Initialize RAG Pipeline
 try:
-    from openai import OpenAI
-except Exception:  # pragma: no cover - library presence handled at runtime
-    OpenAI = None
+    # We now look for GEMINI_API_KEY
+    api_key = os.getenv("GEMINI_API_KEY")
+    rag_pipeline = RAGPipeline(api_key=api_key)
+    db_manager = DatabaseManager()
+    logger.info("✅ Services initialized successfully")
+except Exception as e:
+    logger.error(f"Failed to initialize services: {e}")
+    rag_pipeline = None
+    db_manager = None
 
-MODEL_DEFAULT = os.getenv("LLM_MODEL", "gpt-4o-mini")
-API_KEY = os.getenv("OPENAI_API_KEY")
 
-app = FastAPI(title="Insights LLM Service", version="1.0.0")
+class ChatRequest(BaseModel):
+    user_id: int
+    message: str
 
-class Prompt(BaseModel):
-    prompt: str = Field(..., min_length=1)
-    model: str | None = None
-    max_tokens: int | None = 200
-    temperature: float | None = 0.7
 
-@app.get("/health")
-def health():
-    return {
-        "status": "ok",
-        "service": "insights-llm",
-        "llm_configured": bool(API_KEY),
-        "model_default": MODEL_DEFAULT,
-    }
+class ChatResponse(BaseModel):
+    response: str
+    context_used: int
+    metadata: Optional[Dict] = None
 
-@app.post("/generate")
-def generate(p: Prompt):
-    if not API_KEY or OpenAI is None:
-        raise HTTPException(status_code=500, detail="LLM not configured")
+
+@app.post("/chat", response_model=ChatResponse)
+def chat_endpoint(request: ChatRequest):
     try:
-        client = OpenAI(api_key=API_KEY)
-        model = p.model or MODEL_DEFAULT
-        # Chat Completions API
-        resp = client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": p.prompt}],
-            max_tokens=p.max_tokens or 200,
-            temperature=p.temperature if p.temperature is not None else 0.7,
+        logger.info(f"Chat request from user {request.user_id}: {request.message}")
+
+        if not rag_pipeline or not db_manager:
+            raise HTTPException(
+                status_code=503,
+                detail="Service not initialized (Check GEMINI_API_KEY)"
+            )
+        
+        # 1. Fetch transactions
+        transactions = db_manager.fetch_transactions(request.user_id)
+        
+        # 2. Process with RAG pipeline (Gemini)
+        result = rag_pipeline.process_query(
+            user_id=request.user_id,
+            query=request.message,
+            transactions=transactions
         )
-        content = resp.choices[0].message.content if resp.choices else ""
-        return {"model": model, "reply": content}
-    except Exception as e:  # surface upstream error cleanly
-        raise HTTPException(status_code=502, detail=f"LLM error: {e}")
+        
+        # 3. Save chat log
+        try:
+            db_manager.save_chat_log(
+                user_id=request.user_id,
+                query=request.message,
+                response=result['answer'],
+                context=result['context_preview']
+            )
+        except Exception as e:
+            logger.warning(f"Failed to save chat log: {e}")
+
+        return ChatResponse(
+            response=result['answer'],
+            context_used=result['transactions_count'],
+            metadata={
+                "timestamp": datetime.now().isoformat(),
+                "model": "gemini-1.5-flash",
+                "provider": "Google"
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))

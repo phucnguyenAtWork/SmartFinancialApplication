@@ -13,7 +13,6 @@ const PORT = process.env.PORT || 8080;
 
 app.use(helmet());
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
-app.use(express.json());
 app.use(morgan('dev'));
 
 const routes = {
@@ -27,11 +26,9 @@ const routes = {
 // Health
 app.get('/health', (req, res) => res.json({ status: 'ok', service: 'gateway' }));
 
-// API proxies
 app.use('/api/auth', createProxyMiddleware({
   target: routes.auth,          
   changeOrigin: true,
-  // pathRewrite: { '^/api/auth': '/' },
   timeout: 30000,
   proxyTimeout: 30000,
   onProxyReq(proxyReq, req) {
@@ -42,28 +39,40 @@ app.use('/api/auth', createProxyMiddleware({
     if (!res.headersSent) res.status(502).json({ error: 'bad_gateway', detail: err.code || 'proxy_error' });
   },
 }));
+
 app.use('/api/users', createProxyMiddleware({
    target: routes.users, 
    changeOrigin: true, 
-  //  pathRewrite: { '^/api/users': '/' } 
-  }));
+   pathRewrite: {
+     '^/api/users': '/'
+   }
+}));
+
 app.use('/api/transactions', createProxyMiddleware({ 
   target: routes.tx, 
   changeOrigin: true, 
-  // pathRewrite: { '^/api/transactions': '/' } 
+  pathRewrite: {
+    '^/api/transactions': '/'
+  }
 }));
+
 app.use('/api/budgets', createProxyMiddleware({ 
   target: routes.budgets, 
   changeOrigin: true, 
-  // pathRewrite: { '^/api/budgets': '/' } 
+  pathRewrite: {
+    '^/api/budgets': '/'
+  }
 }));
+
 app.use('/api/insights', createProxyMiddleware({ 
   target: routes.llm, 
   changeOrigin: true, 
-  // pathRewrite: { '^/api/insights': '/' } 
+  pathRewrite: {
+    '^/api/insights': '/'
+  }
 }));
 
-// Spec endpoints with injected servers base so Swagger UI "Try it out" hits correct /api/* paths
+
 const forwardOpenApi = (base, prefix) => async (req, res) => {
   try {
     const r = await fetch(`${base}/openapi.json`);
@@ -71,7 +80,6 @@ const forwardOpenApi = (base, prefix) => async (req, res) => {
     res.status(r.status);
     try {
       const json = JSON.parse(text);
-      // Inject servers if missing or ensure desired prefix present
       const existingServers = Array.isArray(json.servers) ? json.servers : [];
       const hasPrefix = existingServers.some(s => s.url === prefix);
       if (!hasPrefix) {
@@ -79,21 +87,19 @@ const forwardOpenApi = (base, prefix) => async (req, res) => {
       }
       res.type('application/json').send(json);
     } catch {
-      // Fallback raw
       res.type('application/json').send(text);
     }
   } catch (e) {
     res.status(502).json({ error: 'bad_gateway', detail: String(e) });
   }
 };
+
 app.get('/specs/auth', forwardOpenApi(routes.auth, '/api/auth'));
 app.get('/specs/users', forwardOpenApi(routes.users, '/api/users'));
 app.get('/specs/transactions', forwardOpenApi(routes.tx, '/api/transactions'));
 app.get('/specs/budgets', forwardOpenApi(routes.budgets, '/api/budgets'));
 app.get('/specs/insights', forwardOpenApi(routes.llm, '/api/insights'));
 
-// Aggregated Swagger UI
-// Use modified spec endpoints (with servers injected)
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(null, {
   explorer: false,
   swaggerOptions: {
@@ -109,6 +115,5 @@ app.use('/docs', swaggerUi.serve, swaggerUi.setup(null, {
 }));
 
 app.listen(PORT, () => {
-  // eslint-disable-next-line no-console
   console.log(`Gateway listening on :${PORT}`);
 });

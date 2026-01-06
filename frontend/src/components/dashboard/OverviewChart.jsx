@@ -1,31 +1,90 @@
-import React from 'react';
-import { Card } from '../common/Card';
+import React, { useMemo } from 'react';
 
-export function OverviewChart() {
+export function OverviewChart({ data = [] }) {
+  
+  // 1. MATHEMATICAL CALCULATION
+  const { points, areaPath, hasData } = useMemo(() => {
+    if (!data || data.length === 0) return { points: "", areaPath: "", hasData: false };
+
+    const values = data.map(d => d.amount);
+  
+    const min = Math.min(...values, 0); 
+    const max = Math.max(...values, 100);
+    const range = max - min || 1;
+    const coordinates = values.map((val, index) => {
+      const x = (index / (values.length - 1)) * 100;
+      const y = 40 - ((val - min) / range) * 35; 
+      return [x, y];
+    });
+
+    const pointsStr = coordinates.map(p => `${p[0]},${p[1]}`).join(' ');
+    
+    // Close the loop for the gradient background area
+    const areaStr = `0,40 ${pointsStr} 100,40`;
+
+    return { points: pointsStr, areaPath: areaStr, hasData: true };
+  }, [data]);
+
   return (
-    <Card className="p-5">
-      <div className="mb-4 flex items-center justify-between">
-        <div className="text-sm font-semibold text-slate-900">Overview</div>
-        <div className="flex items-center gap-3 text-xs text-gray-500">
-          <div className="flex items-center gap-1 rounded-full border px-2 py-1">
-            <span className="text-[11px]">📅</span>
-            <span>17 November, 2023</span>
-          </div>
-          <button className="flex items-center gap-1 rounded-lg border px-3 py-1">Monthly <span className="text-[10px] text-gray-400">▼</span></button>
+    <div className="flex h-full flex-col justify-between rounded-xl bg-slate-50/50 px-4 py-4">
+        
+        {/* SVG Container */}
+        <div className="relative flex-1 min-h-0 w-full">
+           <svg viewBox="0 0 100 40" preserveAspectRatio="none" className="h-full w-full overflow-visible">
+              
+              {/* Grid Lines */}
+              {[10, 20, 30].map((y) => (
+                <line key={y} x1="0" x2="100" y1={y} y2={y} stroke="#E2E8F0" strokeWidth="0.5" strokeDasharray="2 2" />
+              ))}
+              
+              {/* Gradients */}
+              <defs>
+                <linearGradient id="chartGradient" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stopColor="#3B82F6" stopOpacity="0.3"/>
+                  <stop offset="100%" stopColor="#3B82F6" stopOpacity="0"/>
+                </linearGradient>
+              </defs>
+
+              {/* RENDER LOGIC */}
+              {!hasData ? (
+                 // Empty State
+                 <text x="50" y="20" textAnchor="middle" fontSize="3" fill="#94A3B8">No Activity Yet</text>
+              ) : (
+                 <>
+                    {/* The Fill Area (Gradient) */}
+                    <polygon points={areaPath} fill="url(#chartGradient)" />
+
+                    {/* The Line Stroke */}
+                    <polyline 
+                      fill="none" 
+                      stroke="#3B82F6" 
+                      strokeWidth="1.5" 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round"
+                      points={points} 
+                      vectorEffect="non-scaling-stroke"
+                      className="drop-shadow-sm"
+                    />
+                 </>
+              )}
+           </svg>
         </div>
-      </div>
-      <div className="h-64 rounded-2xl bg-slate-50 px-4 py-4">
-        <svg viewBox="0 0 100 40" className="h-full w-full">
-          {[8, 16, 24, 32].map((y) => (
-            <line key={y} x1="0" x2="100" y1={y} y2={y} stroke="#E5E7EB" strokeWidth="0.3" />
-          ))}
-          <polyline fill="none" stroke="#D1D5DB" strokeDasharray="1 2" strokeWidth="1" points="0,26 10,15 20,12 30,22 40,20 50,25 60,18 70,16 80,19 90,21 100,23" />
-          <polyline fill="none" stroke="#2563EB" strokeWidth="1.8" strokeLinecap="round" points="0,30 10,20 20,10 30,24 40,22 50,30 60,20 70,18 80,22 90,24 100,28" />
-        </svg>
-        <div className="mt-3 flex justify-between px-1 text-[11px] text-gray-500">
-          {['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map(m => <span key={m}>{m}</span> )}
+
+        {/* Dynamic Dates X-Axis */}
+        <div className="mt-2 flex justify-between px-1 text-[8px] font-medium text-slate-400 uppercase tracking-wider">
+           {hasData && (
+             <>
+               <span>{formatDate(data[0].date)}</span>
+               {data.length > 2 && <span>{formatDate(data[Math.floor(data.length / 2)].date)}</span>}
+               <span>{formatDate(data[data.length - 1].date)}</span>
+             </>
+           )}
         </div>
-      </div>
-    </Card>
+    </div>
   );
+}
+function formatDate(isoStr) {
+  if (!isoStr) return '';
+  const d = new Date(isoStr);
+  return `${d.getDate()}/${d.getMonth() + 1}`;
 }

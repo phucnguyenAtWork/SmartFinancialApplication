@@ -1,6 +1,13 @@
 import { Router } from 'express';
 import { requireAuth } from '../middlewares/auth.js';
-import { listTransactions, getTransaction, createTransaction, deleteTransaction } from '../controllers/transactions.controller.js';
+// 1. IMPORT updateTransaction HERE
+import { 
+  listTransactions, 
+  getTransaction, 
+  createTransaction, 
+  deleteTransaction, 
+  updateTransaction 
+} from '../controllers/transactions.controller.js';
 
 export const transactionsRouter = Router();
 
@@ -75,8 +82,6 @@ transactionsRouter.get('/:id', requireAuth, getTransaction);
  * type: number
  * currency:
  * type: string
- * minLength: 3
- * maxLength: 3
  * category:
  * type: string
  * description:
@@ -93,6 +98,49 @@ transactionsRouter.get('/:id', requireAuth, getTransaction);
  * description: Unauthorized
  */
 transactionsRouter.post('/', requireAuth, createTransaction);
+
+/**
+ * @openapi
+ * /{id}:
+ * put:
+ * summary: Update a transaction
+ * tags: [Transactions]
+ * security:
+ * - bearerAuth: []
+ * parameters:
+ * - in: path
+ * name: id
+ * required: true
+ * schema:
+ * type: integer
+ * requestBody:
+ * required: true
+ * content:
+ * application/json:
+ * schema:
+ * type: object
+ * properties:
+ * amount:
+ * type: number
+ * description:
+ * type: string
+ * occurred_at:
+ * type: string
+ * format: date-time
+ * type:
+ * type: string
+ * enum: [INCOME, EXPENSE, TRANSFER]
+ * responses:
+ * 200:
+ * description: Updated successfully
+ * 400:
+ * description: Bad request
+ * 401:
+ * description: Unauthorized
+ * 404:
+ * description: Not found
+ */
+transactionsRouter.put('/:id', requireAuth, updateTransaction);
 
 /**
  * @openapi
