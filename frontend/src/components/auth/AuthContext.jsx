@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react'; // 1. Import useCallback
 import { apiRequest } from '../../lib/api';
 
 const AuthContext = createContext(null);
@@ -18,15 +18,16 @@ export function AuthProvider({ children }) {
     return raw ? JSON.parse(raw) : null;
   });
 
-  const setSession = (t, u) => {
+  const setSession = useCallback((t, u) => {
     setToken(t);
     localStorage.setItem('jwt', t);
     setUser(u || null);
     if (u) localStorage.setItem('user', JSON.stringify(u));
     else localStorage.removeItem('user');
-  };
+  }, []);
 
-  const login = async ({ phone, password }) => {
+  // 2. Wrap login, register, and logout in useCallback to prevent infinite loops
+  const login = useCallback(async ({ phone, password }) => {
     try {
       const data = await apiRequest('/api/auth/login', {
         method: 'POST',
@@ -37,9 +38,9 @@ export function AuthProvider({ children }) {
       console.error('[auth] login error', e.name, e.status, e.message, e.data);
       throw e;
     }
-  };
+  }, [setSession]);
 
-  const register = async ({ name, phone, password }) => {
+  const register = useCallback(async ({ name, phone, password }) => {
     try {
       const data = await apiRequest('/api/auth/register', {
         method: 'POST',
@@ -50,9 +51,9 @@ export function AuthProvider({ children }) {
       console.error('[auth] register error', e.name, e.status, e.message, e.data);
       throw e;
     }
-  };
+  }, [setSession]);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     setToken('');
     setUser(null);
     setOnboarded(false);
@@ -61,25 +62,39 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('user');
     localStorage.removeItem('onboarded');
     localStorage.removeItem('card');
-  };
+  }, []);
 
-  function completeOnboarding(cardInfo) {
+  const completeOnboarding = useCallback((cardInfo) => {
     setCard(cardInfo);
     setOnboarded(true);
     localStorage.setItem('card', JSON.stringify(cardInfo));
     localStorage.setItem('onboarded', 'true');
-  }
+  }, []);
 
-  useEffect(() => {}, [token, user, onboarded, card]);
-  // Dev bypass: auto-authenticate if VITE_AUTH_DISABLED=1
+  const refreshProfile = useCallback(async () => {
+    try {
+      if (!token) return;
+      const data = await apiRequest('/api/auth/me'); 
+       setUser(prev => ({ ...prev, ...data }));
+       if (data.card_last4) {
+         setOnboarded(true);
+         setCard({ last4: data.card_last4, name: data.card_name });
+       }
+    } catch (e) {
+      console.error("Failed to refresh profile", e);
+    }
+  }, [token]);
+
+
   useEffect(() => {
     if (import.meta.env.VITE_AUTH_DISABLED === '1' && !token) {
       const dummy = { id: 0, name: 'Dev User', phone: '0000000000', bypass: true };
       setSession('dev-bypass-token', dummy);
     }
-  }, [token]);
+  }, [token, setSession]);
+
   return (
-    <AuthContext.Provider value={{ token, user, card, onboarded, isAuthed: !!token, login, register, logout, completeOnboarding }}>
+    <AuthContext.Provider value={{ token, user, card, onboarded, isAuthed: !!token, login, register, logout, completeOnboarding, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

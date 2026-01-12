@@ -13,6 +13,7 @@ import { useAuth } from './auth/AuthContext';
 import { BudgetPage } from './budget/BudgetPage.jsx';
 import { Dashboard } from './dashboard/Dashboard.jsx';
 import { AnalyticsPage } from './analytics/AnalyticsPage.jsx';
+import SettingsPage  from './settings/SettingPage.jsx';
 export function AppShell() {
   const RequireOnboarded = ({ children }) => {
     const { onboarded } = useAuth();
@@ -66,7 +67,7 @@ export function AppShell() {
         />
         <Route
           path="/settings"
-          element={<ProtectedRoute><Layout><Placeholder title="Settings" /></Layout></ProtectedRoute>}
+          element={<ProtectedRoute><Layout><SettingsPage /></Layout></ProtectedRoute>}
         />
       </Routes>
     </AuthProvider>

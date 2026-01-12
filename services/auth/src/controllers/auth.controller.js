@@ -72,12 +72,42 @@ export const login = async (req, res) => {
 
 export const me = async (req, res) => {
   try {
-    const [authRows] = await authPool.execute('SELECT id, phone, email, created_at FROM auth_users WHERE id = ?', [req.user.sub]);
+    // 1. Safety Check: User ID from Token
+    if (!req.user || !req.user.sub) {
+      return res.status(401).json({ error: 'unauthorized_token_invalid' });
+    }
+
+    // 2. Query Auth User (Added 'full_name' to select list)
+    const [authRows] = await authPool.execute(
+      'SELECT id, phone, email, full_name, created_at FROM auth_users WHERE id = ?', 
+      [req.user.sub]
+    );
     const authUser = authRows[0];
-    const [finRows] = await finPool.execute('SELECT id, phone, name, email, created_at FROM users WHERE phone = ?', [authUser.phone]);
-    return res.json({ auth: authUser, finance: finRows[0] || null });
+
+    if (!authUser) {
+      return res.status(404).json({ error: 'user_not_found' });
+    }
+
+    // 3. Query Finance User (Optional Profile Data)
+    let financeUser = null;
+    if (authUser.phone) {
+      const [finRows] = await finPool.execute(
+        'SELECT id, name, email FROM users WHERE phone = ?', 
+        [authUser.phone]
+      );
+      financeUser = finRows[0];
+    }
+
+    return res.json({
+      id: authUser.id,
+      phone: authUser.phone,
+      email: authUser.email,
+      full_name: financeUser?.name || authUser.full_name || 'User',
+      created_at: authUser.created_at
+    });
+
   } catch (err) {
-    console.error(err);
+    console.error('[auth] me error:', err);
     return res.status(500).json({ error: 'internal' });
   }
 };

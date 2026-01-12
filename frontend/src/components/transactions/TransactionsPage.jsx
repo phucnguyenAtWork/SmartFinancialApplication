@@ -65,7 +65,6 @@ export function TransactionsPage() {
     }
   };
 
-  // -- 3. PREPARE MODAL (Add vs Edit) --
   const openAddModal = () => {
     setModalMode('CREATE');
     setCurrentTx({

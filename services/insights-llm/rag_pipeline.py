@@ -34,20 +34,34 @@ class RAGPipeline:
         Transaction Count: {len(transactions)}
         """
 
-    def process_query(self, user_id: int, query: str, transactions: List[Dict]) -> Dict[str, Any]:
+    def process_query(self, user_id: int, query: str, transactions: List[Dict], history: List[Dict] = []) -> Dict[str, Any]:
+        """
+        Modified to accept 'history'. 
+        history format expected from DB: [{'role': 'user', 'message': '...'}, {'role': 'model', 'message': '...'}]
+        """
         try:
             context = self.build_context(transactions)
             
-            # Construct the raw JSON payload
+            contents_payload = []
+
+            for turn in history:
+                role = "user" if turn['role'] == 'user' else "model"
+                contents_payload.append({
+                    "role": role,
+                    "parts": [{"text": turn['message']}]
+                })
+
+            current_prompt = f"Context: {context}\nUser Question: {query}\nAnswer concisely."
+            
+            contents_payload.append({
+                "role": "user",
+                "parts": [{"text": current_prompt}]
+            })
+            
             payload = {
-                "contents": [{
-                    "parts": [{
-                        "text": f"Context: {context}\nUser Question: {query}\nAnswer concisely."
-                    }]
-                }]
+                "contents": contents_payload
             }
             
-            # Send Request
             response = requests.post(
                 f"{self.api_url}?key={self.api_key}",
                 headers={"Content-Type": "application/json"},
@@ -86,3 +100,65 @@ class RAGPipeline:
                 'context_used': False,
                 'context_preview': ''
             }
+    def generate_dashboard_insights(self, transactions: List[Dict]) -> Dict[str, Any]:
+        """
+        Generates structured JSON data for the dashboard cards and sidebar.
+        """
+        try:
+            context = self.build_context(transactions)
+            
+            # Strict Prompt to force JSON structure matching your Frontend
+            prompt = f"""
+            Analyze the following financial summary and return a JSON object for a dashboard.
+            
+            DATA:
+            {context}
+
+            REQUIREMENTS:
+            Return ONLY raw JSON. No markdown formatting. The JSON must match this structure:
+            {{
+                "initial_message": "A short, friendly greeting summarizing the financial status.",
+                "summary_cards": [
+                    {{ "id": 1, "type": "danger|success|warning|info", "title": "Short Title", "subtitle": "Short Stat", "badge": "TAG" }},
+                    {{ "id": 2, "type": "...", "title": "...", "subtitle": "...", "badge": "..." }},
+                    {{ "id": 3, "type": "...", "title": "...", "subtitle": "...", "badge": "..." }},
+                    {{ "id": 4, "type": "...", "title": "...", "subtitle": "...", "badge": "..." }}
+                ],
+                "smart_insights": [
+                    {{ "id": 1, "type": "warning|success|info", "title": "Insight Title", "desc": "One sentence description." }},
+                    {{ "id": 2, "type": "...", "title": "...", "desc": "..." }},
+                    {{ "id": 3, "type": "...", "title": "...", "desc": "..." }}
+                ],
+                "prediction": {{
+                    "amount": 1234,
+                    "confidence": 85,
+                    "label": "Expected spending next week"
+                }}
+            }}
+            """
+            
+            payload = {
+                "contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {"response_mime_type": "application/json"} 
+            }
+            
+            response = requests.post(
+                f"{self.api_url}?key={self.api_key}",
+                headers={"Content-Type": "application/json"},
+                json=payload
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                text_content = data['candidates'][0]['content']['parts'][0]['text']
+                # Clean up any potential markdown formatting just in case
+                clean_json = text_content.replace('```json', '').replace('```', '').strip()
+                return json.loads(clean_json)
+            
+            else:
+                logger.error(f"Dashboard Gen Error: {response.text}")
+                return None
+
+        except Exception as e:
+            logger.error(f"Dashboard Generation Failed: {e}")
+            return None

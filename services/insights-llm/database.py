@@ -88,6 +88,51 @@ class DatabaseManager:
         finally:
             if cursor: cursor.close()
             if conn: conn.close()
+    def fetch_chat_history(self, user_id: int, limit: int = 5) -> List[Dict]:
+        """
+        Fetch recent chat history for context from insightsdb.
+        Returns a list of dicts: [{'role': 'user', 'message': '...'}, ...]
+        """
+        conn = None
+        cursor = None
+        
+        try:
+            conn = self.get_insights_connection()
+            if not conn:
+                return []
+            
+            cursor = conn.cursor(dictionary=True)
+            
+            query = """
+                SELECT user_query, ai_response 
+                FROM chat_logs 
+                WHERE user_id = %s 
+                ORDER BY id DESC 
+                LIMIT %s
+            """
+            
+            cursor.execute(query, (user_id, limit))
+            rows = cursor.fetchall()
+            
+            history = []
+            for row in reversed(rows):
+                # 1. User turn
+                if row['user_query']:
+                    history.append({"role": "user", "message": row['user_query']})
+                # 2. AI turn
+                if row['ai_response']:
+                    history.append({"role": "model", "message": row['ai_response']})
+            
+            logger.info(f"Fetched {len(history)} history turns for user {user_id}")
+            return history
+            
+        except Exception as e:
+            logger.error(f"Failed to fetch chat history: {e}")
+            return []
+            
+        finally:
+            if cursor: cursor.close()
+            if conn: conn.close()
     
     def save_chat_log(self, user_id: int, query: str, response: str, context: str) -> bool:
         """
@@ -124,6 +169,72 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"Failed to save chat log: {e}")
             return False
+            
+        finally:
+            if cursor: cursor.close()
+            if conn: conn.close()
+    def fetch_budgets_status(self, user_id: int):
+        """
+        Fetches active budgets and calculates spending progress based on start/end dates.
+        """
+        conn = None
+        cursor = None
+        
+        try:
+            conn = self.get_finance_connection()
+            cursor = conn.cursor(dictionary=True)
+            
+            # Updated Query for your specific schema
+            query = """
+                SELECT 
+                    b.id,
+                    c.name as category_name,
+                    b.amount_limit,
+                    b.alert_threshold,
+                    b.period,
+                    b.start_date,
+                    b.end_date,
+                    COALESCE(SUM(t.amount), 0) as spent,
+                    (b.amount_limit - COALESCE(SUM(t.amount), 0)) as remaining
+                FROM budgets b
+                JOIN categories c ON b.category_id = c.id
+                LEFT JOIN transactions t ON 
+                    b.category_id = t.category_id 
+                    AND t.user_id = b.user_id
+                    AND t.type = 'EXPENSE'
+                    AND t.occurred_at BETWEEN b.start_date AND b.end_date
+                WHERE b.user_id = %s
+                  AND CURRENT_DATE BETWEEN b.start_date AND b.end_date -- Only fetch currently active budgets
+                GROUP BY b.id, c.name, b.amount_limit, b.alert_threshold, b.period, b.start_date, b.end_date
+            """
+            
+            cursor.execute(query, (user_id,))
+            results = cursor.fetchall()
+            
+            # Process results for the frontend
+            for row in results:
+                row['spent'] = float(row['spent'])
+                row['amount_limit'] = float(row['amount_limit'])
+                row['alert_threshold'] = float(row['alert_threshold']) # e.g., 0.80
+                
+                # Calculate percentages
+                if row['amount_limit'] > 0:
+                    row['percent'] = (row['spent'] / row['amount_limit']) * 100
+                else:
+                    row['percent'] = 0
+                
+                # Logic: 
+                # 1. Over Budget (> 100%) -> RED
+                # 2. Near Limit (> 80%) -> YELLOW/ORANGE
+                # 3. Safe -> BLUE
+                row['is_over_budget'] = row['spent'] > row['amount_limit']
+                row['is_warning'] = row['percent'] >= (row['alert_threshold'] * 100) and not row['is_over_budget']
+                
+            return results
+
+        except Exception as e:
+            logger.error(f"Error fetching budget status: {e}")
+            return []
             
         finally:
             if cursor: cursor.close()

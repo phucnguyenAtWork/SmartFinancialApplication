@@ -1,12 +1,20 @@
 import React from 'react';
-import { useLocation, Link } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom'; // 1. Added useNavigate
 import { SidebarLink } from '../sidebar/SidebarLink';
 import { useAuth } from '../auth/AuthContext';
 
 export function Layout({ children }) {
   const { pathname } = useLocation();
-  const { user } = useAuth();
+  const navigate = useNavigate(); // 2. Hook for redirection
+  const { user, logout } = useAuth(); // 3. Get logout function
   const [open, setOpen] = React.useState(false);
+
+  // 4. The Responsive Logout Handler
+  const handleLogout = () => {
+    logout(); // Clear state instantly
+    navigate('/login', { replace: true }); // Redirect immediately
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50">
       <div className="flex">
@@ -16,6 +24,7 @@ export function Layout({ children }) {
           onClick={() => setOpen(o => !o)}
           aria-label="Toggle navigation"
         >{open ? '✕' : '☰'}</button>
+
         <aside className={`w-[260px] h-screen sticky top-0 bg-white shadow-xl shadow-slate-100 px-6 py-6 flex flex-col justify-between transition-transform duration-300 lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'} lg:static lg:block`}>        
           <div>
             <div className="mb-6 flex items-center gap-2">
@@ -30,11 +39,18 @@ export function Layout({ children }) {
               <SidebarLink to="/budget" active={pathname === '/budget'}>Budget</SidebarLink>
             </div>
           </div>
+
           <div className="space-y-1 border-t border-slate-100 pt-4">
             <SidebarLink to="/settings" active={pathname === '/settings'}>Setting</SidebarLink>
-            <SidebarLink to="/logout" active={false}>Log out</SidebarLink>
+            <SidebarLink 
+              onClick={handleLogout} 
+              className="text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+            >
+              Log out
+            </SidebarLink>
           </div>
         </aside>
+
         <div className="flex-1 min-w-0">
           <header className="sticky top-0 z-10 flex h-16 sm:h-20 items-center justify-between border-b bg-white px-4 sm:px-8">
             <h1 className="text-2xl font-semibold text-slate-900">Dashboard</h1>

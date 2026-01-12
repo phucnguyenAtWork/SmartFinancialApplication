@@ -1,4 +1,3 @@
--- 2. FINANCE SERVICE (The Core Ledger)
 CREATE DATABASE IF NOT EXISTS financedb;
 USE financedb;
 -- Users Mirror (For Foreign Key Integrity within Finance Service)
@@ -8,7 +7,9 @@ CREATE TABLE IF NOT EXISTS users (
   email VARCHAR(255) UNIQUE,
   name VARCHAR(255),
   currency VARCHAR(3) DEFAULT 'VND',
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  card_last4 VARCHAR(4),
+  card_name VARCHAR(255)
 );
 
 -- CATEGORIES

@@ -21,56 +21,70 @@ export function AnalyticsPage() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatHistory, analyzing]);
 
-  useEffect(() => {
+   useEffect(() => {
     const loadAnalytics = async () => {
       try {
         setLoading(true);
         setError('');
-        await new Promise(resolve => setTimeout(resolve, 800)); 
+        
+        const userId = user?.id || 1;
 
-        const mockData = {
-          initial_message: "Hi! I've analyzed your transactions from the past 30 days. Here's what I found:",
-          cards: [
-            { id: 1, type: 'warning', title: 'Food & Dining', subtitle: '37% of total expenses', badge: 'HIGH SPENDING' },
-            { id: 2, type: 'success', title: 'Savings Rate', subtitle: '36% this month', badge: 'GOOD JOB' },
-            { id: 3, type: 'trend', title: 'Spending Up', subtitle: '+15% vs last month', badge: 'TREND' },
-            { id: 4, type: 'tip', title: 'Save $400', subtitle: 'Cook 3x/week', badge: 'TIP' },
-          ],
-          smart_insights: [
-            { id: 1, type: 'warning', title: 'Unusual Spending', desc: 'You spent $300 more on shopping this week.' },
-            { id: 2, type: 'success', title: 'Great Job!', desc: 'Your savings rate is 15% higher than average.' },
-            { id: 3, type: 'info', title: 'Spending Pattern', desc: 'You tend to spend more on weekends (+40%).' },
-          ],
-          prediction: {
-            amount: 780,
-            confidence: 78,
-            next_week_label: 'Expected spending next week'
+        let dashboardData = null;
+        try {
+          // CALL THE NEW ENDPOINT
+          dashboardData = await apiRequest(`/api/insights/dashboard/${userId}`, {
+            token,
+            method: 'GET'
+          });
+        } catch (err) {
+          console.error("Failed to load AI dashboard data", err);
+        }
+
+        if (dashboardData && dashboardData.smart_insights) {
+            setSidebarInsights({
+              insights: dashboardData.smart_insights,
+              prediction: dashboardData.prediction
+            });
+        }
+
+        let loadedHistory = [];
+        try {
+          const historyResponse = await apiRequest(`/api/insights/history/${userId}`, {
+            token,
+            method: 'GET'
+          });
+          
+          if (historyResponse.history) {
+            loadedHistory = historyResponse.history.map((msg, idx) => ({
+              id: `hist-${idx}`,
+              sender: msg.role === 'user' ? 'user' : 'ai',
+              text: msg.message
+            }));
           }
-        };
+        } catch (err) {
+          console.warn("History fetch failed");
+        }
 
-        setChatHistory([
-          {
+        if (loadedHistory.length > 0) {
+          setChatHistory(loadedHistory);
+        } else if (dashboardData) {
+          setChatHistory([{
             id: 'init-1',
             sender: 'ai',
-            text: mockData.initial_message,
-            cards: mockData.cards
-          }
-        ]);
-        setSidebarInsights({
-          insights: mockData.smart_insights,
-          prediction: mockData.prediction
-        });
+            text: dashboardData.initial_message || "Hello! I've analyzed your finances.",
+            cards: dashboardData.summary_cards || []
+          }]);
+        }
 
       } catch (e) {
-        setError(e.message || 'Failed to load analytics');
-        console.error('Load error:', e);
+        setError(e.message);
       } finally {
         setLoading(false);
       }
     };
 
     loadAnalytics();
-  }, [token]);
+  }, [token, user]);
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || analyzing) return;
@@ -158,12 +172,8 @@ export function AnalyticsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">AI Financial Insights</h1>
-          <p className="text-sm text-slate-500">Powered by GPT-4 + Your Transaction History</p>
+          <p className="text-sm text-slate-500">Powered by Gemini + Your Transaction History</p>
         </div>
-        <button className="px-4 py-2 text-sm border border-slate-300 rounded-lg hover:bg-slate-50 flex items-center justify-center gap-2 transition-colors bg-white">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-500"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Export Report
-        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
@@ -203,7 +213,8 @@ export function AnalyticsPage() {
                         ? 'bg-red-50 text-red-900 border border-red-200'
                         : 'bg-white text-slate-900'
                     }`}>
-                      {msg.text}
+                      {/* Handle Newlines in AI response properly */}
+                      <div className="whitespace-pre-wrap">{msg.text}</div>
                     </div>
 
                     {msg.sender === 'ai' && msg.cards && (

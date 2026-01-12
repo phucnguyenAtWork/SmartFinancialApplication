@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../middlewares/auth.js';
-import { listBudgets, getBudget, createBudget, deleteBudget } from '../controllers/budgets.controller.js';
+import { listBudgets, createBudget, updateBudget, deleteBudget } from '../controllers/budgets.controller.js';
 
 export const budgetsRouter = Router();
 
@@ -8,49 +8,41 @@ export const budgetsRouter = Router();
  * @openapi
  * /:
  * get:
- * summary: List budgets for current user
+ * summary: List active budgets for current user
  * tags: [Budgets]
  * security:
  * - bearerAuth: []
  * responses:
  * 200:
  * description: OK
- * 401:
- * description: Unauthorized
- */
-// FIXED: Changed '/budgets' to '/'
-budgetsRouter.get('/', requireAuth, listBudgets);
-
-/**
- * @openapi
- * /{id}:
- * get:
- * summary: Get budget by id
- * tags: [Budgets]
- * security:
- * - bearerAuth: []
- * parameters:
- * - in: path
- * name: id
- * required: true
+ * content:
+ * application/json:
  * schema:
+ * type: array
+ * items:
+ * type: object
+ * properties:
+ * id:
  * type: integer
- * responses:
- * 200:
- * description: OK
+ * category_name:
+ * type: string
+ * amount_limit:
+ * type: number
+ * spent:
+ * type: number
+ * status:
+ * type: string
+ * enum: [safe, warning, danger]
  * 401:
  * description: Unauthorized
- * 404:
- * description: Not found
  */
-// FIXED: Changed '/budgets/:id' to '/:id'
-budgetsRouter.get('/:id', requireAuth, getBudget);
+budgetsRouter.get('/', requireAuth, listBudgets);
 
 /**
  * @openapi
  * /:
  * post:
- * summary: Create a budget
+ * summary: Create a new budget
  * tags: [Budgets]
  * security:
  * - bearerAuth: []
@@ -60,21 +52,25 @@ budgetsRouter.get('/:id', requireAuth, getBudget);
  * application/json:
  * schema:
  * type: object
- * required: [amount, period, startDate, endDate]
+ * required: [category_id, amount_limit, start_date, end_date]
  * properties:
- * categoryId:
+ * category_id:
  * type: integer
- * amount:
+ * amount_limit:
  * type: number
  * period:
  * type: string
- * enum: [Weekly, Monthly, Yearly]
- * startDate:
+ * default: MONTHLY
+ * enum: [WEEKLY, MONTHLY, YEARLY]
+ * start_date:
  * type: string
  * format: date
- * endDate:
+ * end_date:
  * type: string
  * format: date
+ * alert_threshold:
+ * type: number
+ * default: 0.80
  * responses:
  * 201:
  * description: Created
@@ -83,8 +79,50 @@ budgetsRouter.get('/:id', requireAuth, getBudget);
  * 401:
  * description: Unauthorized
  */
-// FIXED: Changed '/budgets' to '/'
 budgetsRouter.post('/', requireAuth, createBudget);
+
+/**
+ * @openapi
+ * /{id}:
+ * put:
+ * summary: Update an existing budget
+ * tags: [Budgets]
+ * security:
+ * - bearerAuth: []
+ * parameters:
+ * - in: path
+ * name: id
+ * required: true
+ * schema:
+ * type: integer
+ * requestBody:
+ * required: true
+ * content:
+ * application/json:
+ * schema:
+ * type: object
+ * properties:
+ * amount_limit:
+ * type: number
+ * period:
+ * type: string
+ * start_date:
+ * type: string
+ * format: date
+ * end_date:
+ * type: string
+ * format: date
+ * alert_threshold:
+ * type: number
+ * responses:
+ * 200:
+ * description: Updated successfully
+ * 401:
+ * description: Unauthorized
+ * 404:
+ * description: Budget not found
+ */
+budgetsRouter.put('/:id', requireAuth, updateBudget);
 
 /**
  * @openapi
@@ -108,5 +146,4 @@ budgetsRouter.post('/', requireAuth, createBudget);
  * 404:
  * description: Not found
  */
-// FIXED: Changed '/budgets/:id' to '/:id'
 budgetsRouter.delete('/:id', requireAuth, deleteBudget);

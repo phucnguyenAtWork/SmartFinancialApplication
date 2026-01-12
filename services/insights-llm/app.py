@@ -59,17 +59,18 @@ def chat_endpoint(request: ChatRequest):
         if not rag_pipeline or not db_manager:
             raise HTTPException(
                 status_code=503,
-                detail="Service not initialized (Check GEMINI_API_KEY)"
+                detail="Service not initialized"
             )
         
-        # 1. Fetch transactions
         transactions = db_manager.fetch_transactions(request.user_id)
-        
-        # 2. Process with RAG pipeline (Gemini)
+
+        chat_history = db_manager.fetch_chat_history(request.user_id, limit=6)
+
         result = rag_pipeline.process_query(
             user_id=request.user_id,
             query=request.message,
-            transactions=transactions
+            transactions=transactions,
+            history=chat_history
         )
         
         # 3. Save chat log
@@ -97,4 +98,48 @@ def chat_endpoint(request: ChatRequest):
         raise
     except Exception as e:
         logger.error(f"Unexpected error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/history/{user_id}")
+def get_chat_history_endpoint(user_id: int):
+    """
+    Endpoint for the Frontend to load past messages
+    """
+    try:
+        if not db_manager:
+            raise HTTPException(status_code=503, detail="Database not initialized")
+
+        history = db_manager.fetch_chat_history(user_id, limit=50)
+        
+        return {"history": history}
+        
+    except Exception as e:
+        logger.error(f"Error fetching history: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@app.get("/dashboard/{user_id}")
+def get_dashboard_data(user_id: int):
+    """
+    Generates the initial dashboard state using Gemini
+    """
+    try:
+        if not rag_pipeline or not db_manager:
+            raise HTTPException(status_code=503, detail="Service not initialized")
+
+        transactions = db_manager.fetch_transactions(user_id, days=30)
+        
+        dashboard_data = rag_pipeline.generate_dashboard_insights(transactions)
+        
+        if not dashboard_data:
+            return {
+                "initial_message": "Welcome back! I'm ready to analyze your finances.",
+                "summary_cards": [],
+                "smart_insights": [],
+                "prediction": None
+            }
+            
+        return dashboard_data
+
+    except Exception as e:
+        logger.error(f"Dashboard Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
