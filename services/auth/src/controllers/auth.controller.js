@@ -7,9 +7,36 @@ import { AuthUser } from '../models/AuthUser.js';
 const signToken = (payload) => jwt.sign(payload, config.jwtSecret, { expiresIn: '7d' });
 
 const ensureFinanceUser = async (phone, name = null, email = null) => {
-  await finPool.execute('INSERT IGNORE INTO users (phone, name, email) VALUES (?, ?, ?)', [phone, name, email]);
-  const [rows] = await finPool.execute('SELECT id, phone, name, email FROM users WHERE phone = ?', [phone]);
-  return rows[0];
+  console.log('--- [DEBUG] Ensuring Finance User ---');
+  console.log('1. Inputs:', { phone, name, email });
+  
+  try {
+    console.log('2. Attempting INSERT into users table...');
+    const [insertResult] = await finPool.execute(
+      'INSERT IGNORE INTO users (phone, name, email, currency) VALUES (?, ?, ?, ?)', 
+      [phone, name, email, 'VND']
+    );
+    console.log('3. INSERT Result:', insertResult);
+
+    console.log('4. Attempting SELECT...');
+    const [rows] = await finPool.execute(
+      'SELECT id, phone, name FROM users WHERE phone = ?', 
+      [phone]
+    );
+    console.log('5. SELECT Result:', rows);
+
+    if (!rows[0]) {
+      console.error('CRITICAL: User inserted but SELECT returned empty!');
+    } else {
+      console.log('SUCCESS: Found user:', rows[0]);
+    }
+
+    return rows[0];
+
+  } catch (err) {
+    console.error('DATABASE ERROR inside ensureFinanceUser:', err);
+    throw err; 
+  }
 };
 
 export const health = (req, res) => res.json({ status: 'ok', service: 'auth' });

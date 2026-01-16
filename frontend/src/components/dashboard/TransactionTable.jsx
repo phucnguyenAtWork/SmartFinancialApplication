@@ -89,7 +89,6 @@ export function TransactionTable({ limit = 5, showHeader = true }) {
         </div>
       ) : (
         <>
-          {/* DESKTOP TABLE VIEW (hidden on mobile) */}
           <div className="hidden md:block overflow-x-auto">
             <table className="min-w-full text-left text-sm">
               <thead>

@@ -10,12 +10,11 @@ export function BudgetGauge({ spent = 0, limit = 5000000 }) {
   if (percentage > 85) color = "#ef4444"; // Red
 
   return (
-    <div className="flex flex-col items-center justify-center rounded-2xl bg-white p-6 shadow-sm border border-slate-100">
-      <h3 className="mb-2 w-full text-left font-bold text-slate-900">Budget Health</h3>
-      
-      <div className="relative flex h-32 w-full items-end justify-center">
+    <div className="flex w-full flex-col items-center justify-center rounded-2xl bg-white p-4 sm:p-6 shadow-sm border border-slate-100">
+      <h3 className="mb-4 w-full text-left text-sm sm:text-base font-bold text-slate-900">Budget Health</h3>
+      <div className="relative w-full max-w-[240px] aspect-[2/1] flex items-end justify-center">
         
-        <svg viewBox="0 0 200 100" className="w-full h-full">
+        <svg viewBox="0 0 200 110" className="w-full h-full overflow-visible">
           
           {/* Background Track */}
           <path
@@ -39,22 +38,30 @@ export function BudgetGauge({ spent = 0, limit = 5000000 }) {
           />
         </svg>
 
-        {/* Center Text (Adjusted position to sit snugly in the arch) */}
-        <div className="absolute bottom-0 mb-1 flex flex-col items-center">
-            <span className="text-3xl font-extrabold text-slate-800">{Math.round(percentage)}%</span>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Used</span>
+        {/* Center Text */}
+        <div className="absolute bottom-0 mb-0 flex flex-col items-center">
+            <span className="text-2xl sm:text-3xl font-extrabold text-slate-800">
+              {Math.round(percentage)}%
+            </span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+              Used
+            </span>
         </div>
       </div>
 
       {/* Footer Info */}
-      <div className="mt-4 flex w-full justify-between border-t border-slate-50 pt-4 text-sm">
+      <div className="mt-4 flex w-full justify-between border-t border-slate-50 pt-4 text-xs sm:text-sm">
         <div className="flex flex-col">
-            <span className="text-xs font-medium text-slate-400">Spent</span>
-            <span className="font-bold text-slate-700">{spent.toLocaleString()}₫</span>
+            <span className="font-medium text-slate-400">Spent</span>
+            <span className="font-bold text-slate-700 truncate max-w-[80px] sm:max-w-none">
+              {spent.toLocaleString()}₫
+            </span>
         </div>
         <div className="flex flex-col text-right">
-            <span className="text-xs font-medium text-slate-400">Limit</span>
-            <span className="font-bold text-slate-700">{limit.toLocaleString()}₫</span>
+            <span className="font-medium text-slate-400">Limit</span>
+            <span className="font-bold text-slate-700 truncate max-w-[80px] sm:max-w-none">
+              {limit.toLocaleString()}₫
+            </span>
         </div>
       </div>
     </div>

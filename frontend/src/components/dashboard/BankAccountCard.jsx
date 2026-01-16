@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 
-export function BankAccountCard({ balance = 0, holderName = "User" }) {
+export function BankAccountCard({ balance = 0, holderName }) {
+  
+  const safeName = holderName || "User";
+
   // 1. State for the input amount
   const [amount, setAmount] = useState("");
   // 2. Conversion Rate
@@ -8,12 +11,6 @@ export function BankAccountCard({ balance = 0, holderName = "User" }) {
   const numericAmount = Number(amount) || 0;
   const convertedValue = (numericAmount / EXCHANGE_RATE).toFixed(2);
   const isOverBalance = numericAmount > balance;
-
-  const handleAmountChange = (e) => {
-    // Only allow numbers
-    const val = e.target.value.replace(/[^0-9]/g, '');
-    setAmount(val);
-  };
 
   return (
     <div className="w-full rounded-2xl bg-white p-6 shadow-sm border border-slate-100 flex flex-col">
@@ -28,8 +25,9 @@ export function BankAccountCard({ balance = 0, holderName = "User" }) {
             </span>
           </p>
         </div>
+        {/* ✅ FIX: Use safeName instead of holderName directly */}
         <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600">
-           {holderName.charAt(0)}
+           {safeName.charAt(0).toUpperCase()}
         </div>
       </div>
 
@@ -42,7 +40,6 @@ export function BankAccountCard({ balance = 0, holderName = "User" }) {
           <div className="flex flex-col w-full">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">You Send</span>
             <div className="flex items-center gap-1">
-               {/* This INPUT makes it interactive */}
                <input 
                   type="text" 
                   value={amount ? Number(amount).toLocaleString() : ''}

@@ -8,8 +8,8 @@ export const config = {
   db: {
     host: process.env.DB_HOST || 'mysql-finance',
     port: Number(process.env.DB_PORT || 3306),
-    user: process.env.DB_USER || 'finuser',
-    pass: process.env.DB_PASS || 'finpass',
+    user: process.env.DB_USER || 'root',
+    pass: process.env.DB_PASS || 'rootpass',
     name: process.env.DB_NAME || 'financedb',
   },
 };

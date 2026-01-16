@@ -2,24 +2,31 @@ import React, { useMemo } from 'react';
 
 export function OverviewChart({ data = [] }) {
   
-  // 1. MATHEMATICAL CALCULATION
   const { points, areaPath, hasData } = useMemo(() => {
     if (!data || data.length === 0) return { points: "", areaPath: "", hasData: false };
 
-    const values = data.map(d => d.amount);
+    const values = data.map(d => Number(d.amount));
   
     const min = Math.min(...values, 0); 
     const max = Math.max(...values, 100);
     const range = max - min || 1;
-    const coordinates = values.map((val, index) => {
-      const x = (index / (values.length - 1)) * 100;
-      const y = 40 - ((val - min) / range) * 35; 
-      return [x, y];
-    });
+
+    let coordinates;
+
+    if (values.length === 1) {
+      const val = values[0];
+      const y = 40 - ((val - min) / range) * 35;
+      coordinates = [[0, y], [100, y]];
+    } else {
+      coordinates = values.map((val, index) => {
+        const x = (index / (values.length - 1)) * 100;
+        const y = 40 - ((val - min) / range) * 35; 
+        return [x, y];
+      });
+    }
 
     const pointsStr = coordinates.map(p => `${p[0]},${p[1]}`).join(' ');
     
-    // Close the loop for the gradient background area
     const areaStr = `0,40 ${pointsStr} 100,40`;
 
     return { points: pointsStr, areaPath: areaStr, hasData: true };
@@ -47,7 +54,6 @@ export function OverviewChart({ data = [] }) {
 
               {/* RENDER LOGIC */}
               {!hasData ? (
-                 // Empty State
                  <text x="50" y="20" textAnchor="middle" fontSize="3" fill="#94A3B8">No Activity Yet</text>
               ) : (
                  <>
@@ -74,15 +80,25 @@ export function OverviewChart({ data = [] }) {
         <div className="mt-2 flex justify-between px-1 text-[8px] font-medium text-slate-400 uppercase tracking-wider">
            {hasData && (
              <>
-               <span>{formatDate(data[0].date)}</span>
-               {data.length > 2 && <span>{formatDate(data[Math.floor(data.length / 2)].date)}</span>}
-               <span>{formatDate(data[data.length - 1].date)}</span>
+               {/* Left Date */}
+               <span>{formatDate(data[0].date || data[0].occurred_at)}</span>
+
+               {/* Middle Date */}
+               {data.length > 2 && (
+                 <span>{formatDate(data[Math.floor(data.length / 2)].date || data[Math.floor(data.length / 2)].occurred_at)}</span>
+               )}
+
+               {/* Right Date */}
+               {data.length > 1 && (
+                 <span>{formatDate(data[data.length - 1].date || data[data.length - 1].occurred_at)}</span>
+               )}
              </>
            )}
         </div>
     </div>
   );
 }
+
 function formatDate(isoStr) {
   if (!isoStr) return '';
   const d = new Date(isoStr);

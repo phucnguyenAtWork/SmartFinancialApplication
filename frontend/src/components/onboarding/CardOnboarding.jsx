@@ -5,7 +5,7 @@ import { Card as Panel } from '../common/Card';
 import { apiRequest } from '../../lib/api';
 
 export function CardOnboarding() {
-  const { refreshProfile } = useAuth(); 
+  const { refreshProfile,token } = useAuth(); 
   const navigate = useNavigate();
   
   const [cardNumber, setCardNumber] = useState('');
@@ -35,7 +35,8 @@ export function CardOnboarding() {
 
       await apiRequest('/api/users/onboard/card', {
         method: 'POST',
-        body: payload
+        body: payload,
+        token: token
       });
       if (refreshProfile) {
         await refreshProfile(); 

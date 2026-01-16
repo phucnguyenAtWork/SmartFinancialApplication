@@ -26,8 +26,6 @@ export function BudgetPage() {
     // 1. Initial Load
     useEffect(() => {
         loadData();
-        // Load Categories (Mock or API)
-        // You should eventually replace this with a real API call like: await apiRequest('/api/categories', ...)
         setCategories([
             { id: 1, name: 'Food & Dining' },
             { id: 2, name: 'Transportation' },
@@ -41,7 +39,6 @@ export function BudgetPage() {
     const loadData = async () => {
         setLoading(true);
         try {
-            // FIX: Point to the correct Microservice URL (/api/budgets)
             const data = await apiRequest('/api/budgets', { token });
             
             // Handle response whether it's an array or object wrapper
@@ -59,7 +56,6 @@ export function BudgetPage() {
 
                 return {
                     ...r,
-                    // Ensure these are numbers for the UI
                     amount_limit: limit,
                     spent: spent,
                     remaining: limit - spent,
@@ -102,7 +98,6 @@ export function BudgetPage() {
     const handleDelete = async (id) => {
         if (!window.confirm("Are you sure you want to delete this budget?")) return;
         try {
-            // FIX: Point to correct URL
             await apiRequest(`/api/budgets/${id}`, { 
                 token, 
                 method: 'DELETE'
@@ -116,17 +111,15 @@ export function BudgetPage() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            // FIX: Construct proper payload
             const payload = {
                 category_id: parseInt(formData.category_id),
-                amount_limit: parseFloat(formData.amount_limit), // Ensure float
+                amount_limit: parseFloat(formData.amount_limit),
                 period: formData.period,
                 start_date: formData.start_date,
                 end_date: formData.end_date,
                 alert_threshold: 0.80 // Default
             };
 
-            // FIX: Point to correct URL
             const url = editingItem 
                 ? `/api/budgets/${editingItem.id}`
                 : '/api/budgets';
@@ -140,7 +133,7 @@ export function BudgetPage() {
             });
 
             setIsModalOpen(false);
-            loadData(); // Refresh list to see new data
+            loadData();
         } catch (e) {
             console.error(e);
             alert("Failed to save budget. Check console for details.");

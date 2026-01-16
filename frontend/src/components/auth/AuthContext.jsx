@@ -26,7 +26,6 @@ export function AuthProvider({ children }) {
     else localStorage.removeItem('user');
   }, []);
 
-  // 2. Wrap login, register, and logout in useCallback to prevent infinite loops
   const login = useCallback(async ({ phone, password }) => {
     try {
       const data = await apiRequest('/api/auth/login', {
@@ -74,11 +73,13 @@ export function AuthProvider({ children }) {
   const refreshProfile = useCallback(async () => {
     try {
       if (!token) return;
-      const data = await apiRequest('/api/auth/me'); 
+      const data = await apiRequest('/api/users/me',{token}); 
        setUser(prev => ({ ...prev, ...data }));
        if (data.card_last4) {
          setOnboarded(true);
          setCard({ last4: data.card_last4, name: data.card_name });
+         localStorage.setItem('onboarded', 'true');
+         localStorage.setItem('card', JSON.stringify({ last4: data.card_last4, name: data.card_name }));
        }
     } catch (e) {
       console.error("Failed to refresh profile", e);
@@ -86,12 +87,12 @@ export function AuthProvider({ children }) {
   }, [token]);
 
 
-  useEffect(() => {
-    if (import.meta.env.VITE_AUTH_DISABLED === '1' && !token) {
-      const dummy = { id: 0, name: 'Dev User', phone: '0000000000', bypass: true };
-      setSession('dev-bypass-token', dummy);
-    }
-  }, [token, setSession]);
+  // useEffect(() => {
+  //   if (import.meta.env.VITE_AUTH_DISABLED === '1' && !token) {
+  //     const dummy = { id: 0, name: 'Dev User', phone: '0000000000', bypass: true };
+  //     setSession('dev-bypass-token', dummy);
+  //   }
+  // }, [token, setSession]);
 
   return (
     <AuthContext.Provider value={{ token, user, card, onboarded, isAuthed: !!token, login, register, logout, completeOnboarding, refreshProfile }}>

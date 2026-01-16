@@ -13,8 +13,8 @@ export function AnalyticsPage() {
   const [sidebarInsights, setSidebarInsights] = useState(null);
   const [inputValue, setInputValue] = useState('');
   const [analyzing, setAnalyzing] = useState(false);
+  const [financeId, setFinanceId] = useState(null); 
 
-  // Auto-scroll to bottom of chat
   const chatEndRef = useRef(null);
 
   useEffect(() => {
@@ -23,16 +23,27 @@ export function AnalyticsPage() {
 
    useEffect(() => {
     const loadAnalytics = async () => {
+      if (!token) return;
+
       try {
         setLoading(true);
         setError('');
+        let targetId = user?.fid || user?.id; 
         
-        const userId = user?.id || 1;
+        try {
+            const profile = await apiRequest('/api/users/me', { token, method: 'GET' });
+            if (profile && profile.id) {
+                console.log("Confirmed Finance ID:", profile.id);
+                targetId = profile.id;
+                setFinanceId(profile.id);
+            }
+        } catch (err) {
+            console.warn("Could not verify Finance ID, using fallback:", targetId);
+        }
 
         let dashboardData = null;
         try {
-          // CALL THE NEW ENDPOINT
-          dashboardData = await apiRequest(`/api/insights/dashboard/${userId}`, {
+          dashboardData = await apiRequest(`/api/insights/dashboard/${targetId}`, {
             token,
             method: 'GET'
           });
@@ -49,7 +60,7 @@ export function AnalyticsPage() {
 
         let loadedHistory = [];
         try {
-          const historyResponse = await apiRequest(`/api/insights/history/${userId}`, {
+          const historyResponse = await apiRequest(`/api/insights/history/${targetId}`, {
             token,
             method: 'GET'
           });
@@ -84,10 +95,12 @@ export function AnalyticsPage() {
     };
 
     loadAnalytics();
-  }, [token, user]);
+  }, [token]);
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || analyzing) return;
+
+    const targetId = financeId || user?.fid || user?.id;
 
     const userMsg = { id: Date.now(), sender: 'user', text: inputValue };
     setChatHistory(prev => [...prev, userMsg]);
@@ -99,7 +112,7 @@ export function AnalyticsPage() {
         token,
         method: 'POST',
         body: { 
-          user_id: Number(user?.id || 1), 
+          user_id: Number(targetId),
           message: userMsg.text 
         }
       });
@@ -213,7 +226,6 @@ export function AnalyticsPage() {
                         ? 'bg-red-50 text-red-900 border border-red-200'
                         : 'bg-white text-slate-900'
                     }`}>
-                      {/* Handle Newlines in AI response properly */}
                       <div className="whitespace-pre-wrap">{msg.text}</div>
                     </div>
 
@@ -240,7 +252,6 @@ export function AnalyticsPage() {
                 </div>
               ))}
 
-              {/* Thinking Indicator */}
               {analyzing && (
                 <div className="flex gap-3">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-white shadow-sm">
@@ -297,53 +308,59 @@ export function AnalyticsPage() {
         {/* Sidebar Section */}
         <div className="lg:col-span-2 space-y-4">
           
-          {/* Smart Insights Panel */}
           <Card className="p-6">
             <div className="flex items-center gap-2 mb-4 text-slate-900">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-600"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-1 1.5-2 1.5-3.5 0-2.2-1.8-4-4-4-1.7 0-3 1-3.5 2.5a4 4 0 0 0 0 4c.8.8 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
               <h3 className="text-sm font-bold">Smart Insights</h3>
             </div>
             <div className="space-y-3">
-              {sidebarInsights?.insights.map((insight) => (
-                <div key={insight.id} className={`p-3 rounded-lg border ${
-                  insight.type === 'warning' ? 'bg-amber-50 border-amber-200 text-amber-900' :
-                  insight.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-900' :
-                  'bg-blue-50 border-blue-200 text-blue-900'
-                }`}>
-                  <div className="flex items-start gap-3">
-                    <div>
-                      <div className="text-xs font-semibold">{insight.title}</div>
-                      <div className="text-xs opacity-80 mt-1">{insight.desc}</div>
+              {sidebarInsights?.insights ? (
+                sidebarInsights.insights.map((insight, idx) => (
+                  <div key={idx} className={`p-3 rounded-lg border ${
+                    insight.type === 'warning' ? 'bg-amber-50 border-amber-200 text-amber-900' :
+                    insight.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-900' :
+                    'bg-blue-50 border-blue-200 text-blue-900'
+                  }`}>
+                    <div className="flex items-start gap-3">
+                      <div>
+                        <div className="text-xs font-semibold">{insight.title}</div>
+                        <div className="text-xs opacity-80 mt-1">{insight.desc}</div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))
+              ) : (
+                <div className="text-xs text-slate-500">No insights available yet.</div>
+              )}
             </div>
           </Card>
 
-          {/* Predictions Panel */}
           <Card className="p-6">
             <div className="flex items-center gap-2 mb-4 text-slate-900">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-600"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
               <h3 className="text-sm font-bold">AI Predictions</h3>
             </div>
-            {sidebarInsights?.prediction && (
+            {sidebarInsights?.prediction ? (
               <div className="space-y-4">
                 <div>
-                  <div className="text-xs text-slate-500 mb-2">{sidebarInsights.prediction.next_week_label}:</div>
-                  <div className="text-2xl font-bold text-slate-900">${sidebarInsights.prediction.amount}</div>
+                  <div className="text-xs text-slate-500 mb-2">{sidebarInsights.prediction.next_week_label || 'Projected Spend'}:</div>
+                  <div className="text-2xl font-bold text-slate-900">
+                    {Number(sidebarInsights.prediction.amount || 0).toLocaleString()}đ
+                  </div>
                   <div className="text-xs text-slate-500 mt-1">Based on your habits</div>
                 </div>
                 <div className="w-full bg-slate-100 rounded-full h-2">
                   <div 
                     className="bg-indigo-500 h-2 rounded-full transition-all duration-1000" 
-                    style={{ width: `${sidebarInsights.prediction.confidence}%` }}
+                    style={{ width: `${sidebarInsights.prediction.confidence || 50}%` }}
                   ></div>
                 </div>
                 <div className="text-xs text-slate-600">
-                  {sidebarInsights.prediction.confidence}% confidence • Updated just now
+                  {sidebarInsights.prediction.confidence || 0}% confidence • Updated just now
                 </div>
               </div>
+            ) : (
+              <div className="text-xs text-slate-500">No predictions available yet.</div>
             )}
           </Card>
 

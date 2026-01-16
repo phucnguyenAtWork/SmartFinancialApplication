@@ -74,7 +74,7 @@ services:
       - PORT=8101
       - CORS_ORIGIN=http://localhost:5173
       - JWT_SECRET=secretsecret
-      - AUTH_DISABLED=1
+      - AUTH_DISABLED=0
       - DEV_FINANCE_USER_ID=1
       - DB_HOST=mysql-auth
       - DB_PORT=3306
@@ -106,7 +106,7 @@ services:
       - PORT=8102
       - CORS_ORIGIN=http://localhost:5173
       - JWT_SECRET=secretsecret
-      - AUTH_DISABLED=1
+      - AUTH_DISABLED=0
       - DEV_FINANCE_USER_ID=1
       - DB_HOST=mysql-finance
       - DB_PORT=3306
@@ -124,7 +124,7 @@ services:
       - PORT=8103
       - CORS_ORIGIN=http://localhost:5173
       - JWT_SECRET=secretsecret
-      - AUTH_DISABLED=1
+      - AUTH_DISABLED=0
       - DEV_FINANCE_USER_ID=1
       - DB_HOST=mysql-finance
       - DB_PORT=3306
@@ -149,7 +149,7 @@ services:
       - PORT=8104
       - CORS_ORIGIN=http://localhost:5173
       - JWT_SECRET=secretsecret
-      - AUTH_DISABLED=1
+      - AUTH_DISABLED=0
       - DEV_FINANCE_USER_ID=1
       - DB_HOST=mysql-finance
       - DB_PORT=3306
@@ -196,7 +196,7 @@ services:
       - ROUTE_TX=http://transactions:8103
       - ROUTE_BUDGETS=http://budgets:8104
       - ROUTE_LLM=http://insights-llm:8105
-      - AUTH_DISABLED=1
+      - AUTH_DISABLED=0
       - DEV_FINANCE_USER_ID=1
     ports:
       - "8080:8080"
