@@ -41,7 +41,7 @@ services:
     ports:
       - "3309:3306"
     volumes:
-      - ./services/insights-llm:/app
+      - insights-db:/var/lib/mysql
       - ./docker/mysql/init/insights:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
@@ -195,7 +195,7 @@ services:
       - ROUTE_USERS=http://users:8102
       - ROUTE_TX=http://transactions:8103
       - ROUTE_BUDGETS=http://budgets:8104
-      - ROUTE_LLM=http://insights-llm:8105
+      - ROUTE_LLM=http://100.126.232.108:8105
       - AUTH_DISABLED=0
       - DEV_FINANCE_USER_ID=1
     ports:
