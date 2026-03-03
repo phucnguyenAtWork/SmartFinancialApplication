@@ -7,88 +7,77 @@ export function AnalyticsPage() {
   const { token, user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  
-  // Data States
-  const [chatHistory, setChatHistory] = useState([]);
-  const [sidebarInsights, setSidebarInsights] = useState(null);
-  const [inputValue, setInputValue] = useState('');
   const [analyzing, setAnalyzing] = useState(false);
+  const [inputValue, setInputValue] = useState('');
   const [financeId, setFinanceId] = useState(null); 
+  const [sidebarInsights, setSidebarInsights] = useState(null);
+  const [chatHistory, setChatHistory] = useState(() => {
+    const saved = localStorage.getItem("fina_chat_history");
+    return saved ? JSON.parse(saved) : [];
+  });
 
   const chatEndRef = useRef(null);
+  const formatCurrency = (amount, currency = 'VND') => {
+    if (amount === undefined || amount === null) return '0';
+    return Number(amount).toLocaleString('vi-VN', { 
+        style: 'decimal', 
+        maximumFractionDigits: 0 
+    });
+  };
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatHistory, analyzing]);
 
-   useEffect(() => {
+  useEffect(() => {
+    localStorage.setItem("fina_chat_history", JSON.stringify(chatHistory));
+  }, [chatHistory]);
+
+  useEffect(() => {
     const loadAnalytics = async () => {
       if (!token) return;
 
       try {
-        setLoading(true);
+        if (!sidebarInsights) setLoading(true);
         setError('');
-        let targetId = user?.fid || user?.id; 
         
+        let targetId = user?.fid || user?.id; 
         try {
             const profile = await apiRequest('/api/users/me', { token, method: 'GET' });
             if (profile && profile.id) {
-                console.log("Confirmed Finance ID:", profile.id);
                 targetId = profile.id;
                 setFinanceId(profile.id);
             }
         } catch (err) {
-            console.warn("Could not verify Finance ID, using fallback:", targetId);
+            console.warn("Could not verify Finance ID:", targetId);
         }
 
-        let dashboardData = null;
-        try {
-          dashboardData = await apiRequest(`/api/insights/dashboard/${targetId}`, {
+        const dashboardData = await apiRequest(`/api/insights/dashboard/${targetId}`, {
             token,
             method: 'GET'
-          });
-        } catch (err) {
-          console.error("Failed to load AI dashboard data", err);
-        }
+        });
 
-        if (dashboardData && dashboardData.smart_insights) {
+        if (dashboardData) {
             setSidebarInsights({
               insights: dashboardData.smart_insights,
               prediction: dashboardData.prediction
             });
-        }
 
-        let loadedHistory = [];
-        try {
-          const historyResponse = await apiRequest(`/api/insights/history/${targetId}`, {
-            token,
-            method: 'GET'
-          });
-          
-          if (historyResponse.history) {
-            loadedHistory = historyResponse.history.map((msg, idx) => ({
-              id: `hist-${idx}`,
-              sender: msg.role === 'user' ? 'user' : 'ai',
-              text: msg.message
-            }));
-          }
-        } catch (err) {
-          console.warn("History fetch failed");
+            setChatHistory(prev => {
+                if (prev.length === 0) {
+                    return [{
+                        id: 'init-1',
+                        sender: 'ai',
+                        text: dashboardData.initial_message || "Hello! I've analyzed your finances.",
+                        cards: dashboardData.summary_cards || []
+                    }];
+                }
+                return prev;
+            });
         }
-
-        if (loadedHistory.length > 0) {
-          setChatHistory(loadedHistory);
-        } else if (dashboardData) {
-          setChatHistory([{
-            id: 'init-1',
-            sender: 'ai',
-            text: dashboardData.initial_message || "Hello! I've analyzed your finances.",
-            cards: dashboardData.summary_cards || []
-          }]);
-        }
-
       } catch (e) {
-        setError(e.message);
+        console.error("Analytics Load Error:", e);
+        setError("Could not load financial data.");
       } finally {
         setLoading(false);
       }
@@ -101,8 +90,8 @@ export function AnalyticsPage() {
     if (!inputValue.trim() || analyzing) return;
 
     const targetId = financeId || user?.fid || user?.id;
-
     const userMsg = { id: Date.now(), sender: 'user', text: inputValue };
+    
     setChatHistory(prev => [...prev, userMsg]);
     setInputValue('');
     setAnalyzing(true); 
@@ -120,15 +109,14 @@ export function AnalyticsPage() {
       setChatHistory(prev => [...prev, {
         id: Date.now() + 1,
         sender: 'ai',
-        text: response.response || response.message || "I couldn't process that request.",
+        text: response.response || "I couldn't process that request.",
       }]);
 
     } catch (err) {
-      console.error("Failed to connect to AI backend:", err);
       setChatHistory(prev => [...prev, {
         id: Date.now() + 1,
         sender: 'ai',
-        text: "I'm having trouble connecting to the server right now. Please try again later.",
+        text: "I'm having trouble connecting to the Brain.",
         isError: true
       }]);
     } finally {
@@ -136,32 +124,36 @@ export function AnalyticsPage() {
     }
   };
 
+  const renderMessageText = (text) => {
+    if (!text) return null;
+    const parts = text.split(/(\*\*.*?\*\*)/g);
+    return parts.map((part, index) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={index} className="font-bold text-indigo-900">{part.slice(2, -2)}</strong>;
+      }
+      return part;
+    });
+  };
+
   const getCardStyles = (type) => {
     switch (type) {
-      case 'warning': return 'bg-gradient-to-br from-rose-50 to-rose-100 border-rose-200 text-rose-600';
-      case 'success': return 'bg-gradient-to-br from-emerald-50 to-emerald-100 border-emerald-200 text-emerald-600';
-      case 'trend': return 'bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200 text-amber-600';
-      case 'tip': return 'bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 text-blue-600';
-      default: return 'bg-slate-50 border-slate-200 text-slate-600';
+      case 'warning': return 'bg-rose-50 border-rose-200 text-rose-700';
+      case 'success': return 'bg-emerald-50 border-emerald-200 text-emerald-700';
+      case 'danger':  return 'bg-red-50 border-red-200 text-red-700';
+      case 'info':    return 'bg-blue-50 border-blue-200 text-blue-700';
+      default:        return 'bg-slate-50 border-slate-200 text-slate-600';
     }
   };
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto space-y-6 p-4 md:p-0">
-        <div className="flex justify-between">
-           <div className="h-8 w-48 bg-slate-200 rounded animate-pulse"></div>
-           <div className="h-8 w-32 bg-slate-200 rounded animate-pulse"></div>
-        </div>
+      <div className="max-w-7xl mx-auto space-y-6 p-4 md:p-0 animate-pulse">
+        <div className="h-8 w-48 bg-slate-200 rounded"></div>
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          <Card className="lg:col-span-3 h-[700px] p-6 flex flex-col gap-4">
-             <div className="h-16 bg-slate-100 rounded animate-pulse w-full"></div>
-             <div className="h-32 bg-slate-100 rounded animate-pulse w-3/4"></div>
-             <div className="h-16 bg-slate-100 rounded animate-pulse w-1/2 self-end"></div>
-          </Card>
+          <Card className="lg:col-span-3 h-[700px] bg-slate-100"></Card>
           <div className="lg:col-span-2 space-y-4">
-             <Card className="h-48 bg-slate-100 animate-pulse"></Card>
-             <Card className="h-48 bg-slate-100 animate-pulse"></Card>
+             <Card className="h-48 bg-slate-100"></Card>
+             <Card className="h-48 bg-slate-100"></Card>
           </div>
         </div>
       </div>
@@ -169,201 +161,99 @@ export function AnalyticsPage() {
   }
 
   if (error) {
-    return (
-      <div className="max-w-7xl mx-auto p-4">
-        <Card className="p-5 border-red-200 bg-red-50">
-          <div className="text-red-600 font-medium">Error loading analytics: {error}</div>
-        </Card>
-      </div>
-    );
+    return <div className="max-w-7xl mx-auto p-4">Error: {error}</div>;
   }
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 p-4 md:p-0">
-      
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">AI Financial Insights</h1>
-          <p className="text-sm text-slate-500">Powered by Gemini + Your Transaction History</p>
+          <p className="text-sm text-slate-500">Powered by FINA Local Brain</p>
         </div>
+        <button onClick={() => { localStorage.removeItem("fina_chat_history"); setChatHistory([]); }} className="text-xs text-slate-400 hover:text-red-500">Clear History</button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        
         {/* Chat Section */}
         <div className="lg:col-span-3">
-          <Card className="flex flex-col h-[700px] overflow-hidden p-0">
-            {/* Chat Header */}
-            <div className="p-6 border-b border-slate-200 bg-gradient-to-r from-indigo-500 to-purple-600">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-white">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg>
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold text-white">Your AI Financial Advisor</h2>
-                  <p className="text-xs text-white/80">I've analyzed your spending patterns.</p>
-                </div>
-              </div>
+          <Card className="flex flex-col h-[700px] overflow-hidden p-0 shadow-lg border-0">
+            <div className="p-6 border-b border-slate-100 bg-white">
+              <h2 className="text-lg font-bold text-slate-900">FINA Assistant</h2>
+              <p className="text-xs text-slate-500">Online & Ready</p>
             </div>
 
-            {/* Chat Messages */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50">
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50/50">
               {chatHistory.map((msg) => (
                 <div key={msg.id} className={`flex gap-3 ${msg.sender === 'user' ? 'justify-end' : ''}`}>
+                  {msg.sender === 'ai' && <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">🤖</div>}
                   
-                  {msg.sender === 'ai' && (
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-white shadow-sm">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg>
-                    </div>
-                  )}
-
                   <div className="space-y-3 max-w-[85%]">
-                    <div className={`rounded-2xl p-4 shadow-sm text-sm ${
-                      msg.sender === 'user' 
-                        ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white' 
-                        : msg.isError
-                        ? 'bg-red-50 text-red-900 border border-red-200'
-                        : 'bg-white text-slate-900'
-                    }`}>
-                      <div className="whitespace-pre-wrap">{msg.text}</div>
+                    <div className={`rounded-2xl p-4 shadow-sm text-sm ${msg.sender === 'user' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-700 border border-slate-100'}`}>
+                      <div className="whitespace-pre-wrap font-medium">{msg.sender === 'user' ? msg.text : renderMessageText(msg.text)}</div>
                     </div>
 
                     {msg.sender === 'ai' && msg.cards && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
                         {msg.cards.map((card) => (
                           <div key={card.id} className={`rounded-xl p-4 border ${getCardStyles(card.type)}`}>
-                            <div className="text-xs font-semibold mb-1 flex items-center gap-1 opacity-90">
-                              {card.badge}
-                            </div>
-                            <div className="text-slate-900 font-bold text-lg">{card.title}</div>
-                            <div className="text-xs text-slate-600 mt-1">{card.subtitle}</div>
+                            <div className="text-[10px] uppercase font-bold opacity-70 mb-2">{card.badge}</div>
+                            {/* Force Backend strings to look nice, or if number use formatter */}
+                            <div className="text-2xl font-bold mb-1">{card.subtitle}</div>
+                            <div className="text-xs opacity-90">{card.title}</div>
                           </div>
                         ))}
                       </div>
                     )}
                   </div>
-
-                  {msg.sender === 'user' && (
-                    <div className="w-10 h-10 rounded-full bg-slate-300 flex items-center justify-center flex-shrink-0 text-slate-500 shadow-sm">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                    </div>
-                  )}
                 </div>
               ))}
-
-              {analyzing && (
-                <div className="flex gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-white shadow-sm">
-                    <svg className="animate-spin" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-                  </div>
-                  <div className="bg-white rounded-2xl p-4 shadow-sm text-sm text-slate-900">
-                    <div className="flex items-center gap-2">
-                      <span>Analyzing</span>
-                      <span className="animate-pulse">...</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
+              {analyzing && <div className="text-xs text-slate-400">Thinking...</div>}
               <div ref={chatEndRef} />
             </div>
 
-            {/* Input Area */}
-            <div className="p-6 border-t border-slate-200 bg-white">
-              <div className="flex gap-3 mb-3">
+            <div className="p-4 border-t border-slate-200 bg-white">
+              <div className="flex gap-2">
                 <input 
                   type="text" 
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && !analyzing && handleSendMessage()}
-                  placeholder="Ask about your finances..."
-                  disabled={analyzing}
-                  className="flex-1 px-4 py-3 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all disabled:bg-slate-50 disabled:cursor-not-allowed"
+                  placeholder="Ask FINA..."
+                  className="flex-1 px-4 py-3 bg-slate-50 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-100"
                 />
-                <button 
-                  onClick={handleSendMessage}
-                  disabled={analyzing || !inputValue.trim()}
-                  className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl text-sm font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {analyzing ? 'Sending...' : 'Send'}
-                </button>
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                {['How much can I save?', 'Compare to last month', 'Set a savings goal'].map((qs) => (
-                  <button 
-                    key={qs} 
-                    onClick={() => !analyzing && setInputValue(qs)}
-                    disabled={analyzing}
-                    className="px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-full hover:border-indigo-300 hover:bg-indigo-50 transition-colors text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {qs}
-                  </button>
-                ))}
+                <button onClick={handleSendMessage} className="px-4 bg-indigo-600 text-white rounded-xl">Send</button>
               </div>
             </div>
           </Card>
         </div>
 
-        {/* Sidebar Section */}
+        {/* Sidebar */}
         <div className="lg:col-span-2 space-y-4">
-          
-          <Card className="p-6">
-            <div className="flex items-center gap-2 mb-4 text-slate-900">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-600"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-1 1.5-2 1.5-3.5 0-2.2-1.8-4-4-4-1.7 0-3 1-3.5 2.5a4 4 0 0 0 0 4c.8.8 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
-              <h3 className="text-sm font-bold">Smart Insights</h3>
-            </div>
+          <Card className="p-6 border-0 shadow-md">
+            <h3 className="text-sm font-bold mb-4">Smart Insights</h3>
             <div className="space-y-3">
-              {sidebarInsights?.insights ? (
-                sidebarInsights.insights.map((insight, idx) => (
-                  <div key={idx} className={`p-3 rounded-lg border ${
-                    insight.type === 'warning' ? 'bg-amber-50 border-amber-200 text-amber-900' :
-                    insight.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-900' :
-                    'bg-blue-50 border-blue-200 text-blue-900'
-                  }`}>
-                    <div className="flex items-start gap-3">
-                      <div>
-                        <div className="text-xs font-semibold">{insight.title}</div>
-                        <div className="text-xs opacity-80 mt-1">{insight.desc}</div>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="text-xs text-slate-500">No insights available yet.</div>
-              )}
+              {sidebarInsights?.insights?.map((insight, idx) => (
+                <div key={idx} className={`p-4 rounded-xl border-l-4 ${insight.type === 'warning' ? 'bg-amber-50 border-amber-400' : 'bg-indigo-50 border-indigo-400'}`}>
+                  <div className="font-bold text-xs uppercase opacity-80">{insight.title}</div>
+                  <div className="text-sm">{insight.desc}</div>
+                </div>
+              )) || <div className="text-slate-400">Loading...</div>}
             </div>
           </Card>
 
-          <Card className="p-6">
-            <div className="flex items-center gap-2 mb-4 text-slate-900">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-600"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
-              <h3 className="text-sm font-bold">AI Predictions</h3>
-            </div>
+          <Card className="p-6 border-0 shadow-md bg-slate-900 text-white">
+            <h3 className="text-sm font-bold mb-4 text-emerald-400">AI Forecast</h3>
             {sidebarInsights?.prediction ? (
-              <div className="space-y-4">
-                <div>
-                  <div className="text-xs text-slate-500 mb-2">{sidebarInsights.prediction.next_week_label || 'Projected Spend'}:</div>
-                  <div className="text-2xl font-bold text-slate-900">
-                    {Number(sidebarInsights.prediction.amount || 0).toLocaleString()}đ
-                  </div>
-                  <div className="text-xs text-slate-500 mt-1">Based on your habits</div>
+              <div>
+                <div className="text-xs text-slate-400 mb-1">{sidebarInsights.prediction.label || 'Projected Spend'}</div>
+                <div className="text-3xl font-bold text-white">
+                  {formatCurrency(sidebarInsights.prediction.amount)}đ
                 </div>
-                <div className="w-full bg-slate-100 rounded-full h-2">
-                  <div 
-                    className="bg-indigo-500 h-2 rounded-full transition-all duration-1000" 
-                    style={{ width: `${sidebarInsights.prediction.confidence || 50}%` }}
-                  ></div>
-                </div>
-                <div className="text-xs text-slate-600">
-                  {sidebarInsights.prediction.confidence || 0}% confidence • Updated just now
-                </div>
+                <div className="mt-2 text-xs text-slate-400">Confidence: {sidebarInsights.prediction.confidence}%</div>
               </div>
-            ) : (
-              <div className="text-xs text-slate-500">No predictions available yet.</div>
-            )}
+            ) : <div>Loading...</div>}
           </Card>
-
         </div>
       </div>
     </div>
