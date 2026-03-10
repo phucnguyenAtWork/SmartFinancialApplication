@@ -5,12 +5,12 @@ import { apiRequest } from '../../lib/api';
 // --- COMPONENTS ---
 import { YearlySummary } from './YearlySummary';
 import { StatCard } from './StatCard';
-import { BankAccountCard } from './BankAccountCard';
 import { OverviewChart } from './OverviewChart';
 import { TransactionTable } from './TransactionTable';
 import { CardsPanel } from './CardsPanel';
 import { BudgetGauge } from './BudgetGauge';
 import { CategoryDonut } from './CategoryDonut';
+import { BurnoutRatio } from './BurnoutRatio';
 
 export function Dashboard() {
   const { token, user } = useAuth();
@@ -51,22 +51,37 @@ export function Dashboard() {
   const stats = useMemo(() => {
     let totalIncome = 0;
     let totalExpense = 0;
+    let currentMonthExpenses = 0;
+    
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
 
     // Calculate Spending/Income
-    transactions.forEach(t => {
+     transactions.forEach(t => {
       const amt = Number(t.amount || 0);
-      if (t.type === 'INCOME') totalIncome += amt;
-      else if (t.type === 'EXPENSE') totalExpense += amt;
+      const txDate = new Date(t.occurred_at || t.created_at); 
+      
+      if (t.type === 'INCOME') {
+          totalIncome += amt;
+      } else if (t.type === 'EXPENSE') {
+          totalExpense += amt;
+          
+          // Check if this expense happened in the current month and year
+          if (txDate.getMonth() === currentMonth && txDate.getFullYear() === currentYear) {
+              currentMonthExpenses += amt;
+          }
+      }
     });
     const realTotalLimit = budgets.reduce((sum, b) => sum + Number(b.amount_limit || 0), 0);
-
     const totalBalance = totalIncome - totalExpense;
 
     return {
       totalIncome,
       totalExpense,
+      currentMonthExpenses,
       totalBalance,
-      realTotalLimit, // <--- This is your dynamic limit
+      realTotalLimit,
       recentTx: transactions.slice(0, 5)
     };
   }, [transactions, budgets]);
@@ -126,20 +141,22 @@ export function Dashboard() {
           {/* 1. Cards Panel */}
           <CardsPanel />
 
-          {/* 2. Budget Health Gauge (NO HARDCODING) */}
+          {/* 2. Budget Health Gauge */}
           <BudgetGauge 
-             spent={stats.totalExpense} 
+             spent={stats.currentMonthExpenses} 
              limit={stats.realTotalLimit} 
           />
 
-          {/* 3. Category Donut */}
+          {/* 3. Burnout Ratio */}
+          <BurnoutRatio 
+             spent={stats.currentMonthExpenses} 
+             limit={stats.realTotalLimit} 
+          />
+
+          {/* 4. Category Donut */}
           <CategoryDonut transactions={transactions} />
 
-          {/* 4. Bank Account */}
-          <BankAccountCard 
-             balance={stats.totalBalance} 
-             holderName={user?.name || 'User'}
-          />
+         
 
         </div>
       </div>
