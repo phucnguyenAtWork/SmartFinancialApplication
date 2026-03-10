@@ -12,7 +12,7 @@ class RAGPipeline:
         if not api_key:
             raise ValueError("Gemini API key is required")
         self.api_key = api_key
-        self.api_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+        self.api_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent"
         logger.info("RAG Pipeline initialized")
 
     def build_context(self, transactions: List[Dict]) -> str:
@@ -59,6 +59,21 @@ class RAGPipeline:
             })
             
             payload = {
+                "systemInstruction": {
+                    "role": "user",
+                    "parts": [
+                        {
+                            "text": (
+                                "You are a helpful AI Financial Advisor. "
+                                "CRITICAL RULES: "
+                                "1. All transaction amounts in the context are ALREADY in Vietnamese Dong (VND). "
+                                "2. DO NOT apply any currency exchange rates or multiply the numbers. If the data says 101000000, it means exactly 101,000,000 VND. "
+                                "3. Never use the dollar sign ($). Format numbers with commas and add 'VND' or 'đ' (e.g., 101,000,000 VND). "
+                                "4. Always reply in English."
+                            )
+                        }
+                    ]
+                },
                 "contents": contents_payload
             }
             
@@ -107,7 +122,6 @@ class RAGPipeline:
         try:
             context = self.build_context(transactions)
             
-            # Strict Prompt to force JSON structure matching your Frontend
             prompt = f"""
             Analyze the following financial summary and return a JSON object for a dashboard.
             
@@ -115,22 +129,18 @@ class RAGPipeline:
             {context}
 
             REQUIREMENTS:
-            Return ONLY raw JSON. No markdown formatting. The JSON must match this structure:
+            Return ONLY raw JSON. No markdown formatting. The JSON must match this structure exactly:
             {{
-                "initial_message": "A short, friendly greeting summarizing the financial status.",
+                "initial_message": "A short, friendly greeting summarizing the financial status. Use VND formatting (e.g., 5.000.000 đ).",
                 "summary_cards": [
-                    {{ "id": 1, "type": "danger|success|warning|info", "title": "Short Title", "subtitle": "Short Stat", "badge": "TAG" }},
-                    {{ "id": 2, "type": "...", "title": "...", "subtitle": "...", "badge": "..." }},
-                    {{ "id": 3, "type": "...", "title": "...", "subtitle": "...", "badge": "..." }},
-                    {{ "id": 4, "type": "...", "title": "...", "subtitle": "...", "badge": "..." }}
+                    {{ "id": 1, "type": "danger|success|warning|info", "title": "Short Title", "subtitle": "Format money as VND (e.g., 100.000 đ)", "badge": "TAG" }},
+                    {{ "id": 2, "type": "...", "title": "...", "subtitle": "...", "badge": "..." }}
                 ],
                 "smart_insights": [
-                    {{ "id": 1, "type": "warning|success|info", "title": "Insight Title", "desc": "One sentence description." }},
-                    {{ "id": 2, "type": "...", "title": "...", "desc": "..." }},
-                    {{ "id": 3, "type": "...", "title": "...", "desc": "..." }}
+                    {{ "id": 1, "type": "warning|success|info", "title": "Insight Title", "desc": "One sentence description. Format money as VND." }}
                 ],
                 "prediction": {{
-                    "amount": 1234,
+                    "amount": 1234000, // CRITICAL: This MUST be a raw integer. No commas, no text, no currency symbols.
                     "confidence": 85,
                     "label": "Expected spending next week"
                 }}
@@ -138,8 +148,23 @@ class RAGPipeline:
             """
             
             payload = {
-                "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {"response_mime_type": "application/json"} 
+                "systemInstruction": {
+                "role": "user",
+                "parts": [
+                 {
+                    "text": "You are a helpful AI Financial Advisor. CRITICAL RULES: 1. Write all text and insights in English ONLY. 2. The numbers in the data are ALREADY in VND. DO NOT convert or multiply them by any exchange rate. Just format the raw numbers with commas and add 'VND' or 'đ' (e.g., 101000000 becomes 101,000,000 VND). 3. Never use $."
+                 }
+                ]
+            },
+                "contents": [
+                {
+                    "role": "user",
+                    "parts": [{"text": prompt}]
+                }
+                ],
+                "generationConfig": {
+                    "responseMimeType": "application/json"
+                } 
             }
             
             response = requests.post(
@@ -151,6 +176,7 @@ class RAGPipeline:
             if response.status_code == 200:
                 data = response.json()
                 text_content = data['candidates'][0]['content']['parts'][0]['text']
+                
                 # Clean up any potential markdown formatting just in case
                 clean_json = text_content.replace('```json', '').replace('```', '').strip()
                 return json.loads(clean_json)
