@@ -41,7 +41,7 @@ services:
     ports:
       - "3309:3306"
     volumes:
-      - ./services/insights-llm:/app
+      - insights-db:/var/lib/mysql    # <--- FIXED THIS LINE
       - ./docker/mysql/init/insights:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
@@ -92,11 +92,11 @@ services:
       mysql-finance:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://localhost:8101/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
-      interval: 15s
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8101/health || exit 1"]
+      interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 20s
+      start_period: 30s
     networks:
       - app-network
 
@@ -113,8 +113,9 @@ services:
       - DB_USER=root
       - DB_PASS=rootpass
       - DB_NAME=financedb
-    depends_on:
-      - mysql-finance
+    depends_on:                       
+      mysql-finance:
+        condition: service_healthy
     networks:
       - app-network
 
@@ -135,11 +136,13 @@ services:
     ports:
       - "8103:8103"
     volumes:
-      - ./services/transactions:/app      # Syncs code changes
-      - /app/node_modules                 # Protects installed dependencies
+      - ./services/transactions:/app      
+      - /app/node_modules                 
     depends_on:
-      - mysql-finance
-      - rabbitmq
+      mysql-finance:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
     networks:
       - app-network
 
@@ -158,11 +161,13 @@ services:
       - DB_NAME=financedb
       - RABBITMQ_URL=amqp://rabbitmq:5672
     volumes:
-      - ./services/budgets:/app           # Syncs code changes
-      - /app/node_modules                 # Protects installed dependencies
-    depends_on:
-      - mysql-finance
-      - rabbitmq
+      - ./services/budgets:/app           
+      - /app/node_modules                 
+    depends_on:                         
+      mysql-finance:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
     networks:
       - app-network
 
@@ -178,11 +183,14 @@ services:
     ports:
       - "8105:8105"
     volumes:
-      - ./services/insights-llm:/app      # Syncs code changes
+      - ./services/insights-llm:/app
     depends_on:
-      - mysql-finance
-      - mysql-insights
-      - rabbitmq
+      mysql-finance:
+        condition: service_healthy
+      mysql-insights:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
     networks:
       - app-network
 

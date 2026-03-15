@@ -52,7 +52,11 @@ app.use('/api/transactions', createProxyMiddleware({
   target: routes.tx, 
   changeOrigin: true, 
   pathRewrite: {
-    '^/api/transactions': '/'
+    '^/api/transactions': '/',
+  },
+  onError(err, req, res) {
+    console.error('[gateway] transactions proxy error', err.code, err.message);
+    if (!res.headersSent) res.status(502).json({ error: 'bad_gateway', detail: err.code || 'proxy_error' });
   }
 }));
 
@@ -69,6 +73,13 @@ app.use('/api/insights', createProxyMiddleware({
   changeOrigin: true, 
   pathRewrite: {
     '^/api/insights': '/'
+  }
+}));
+app.use('/api/notifications', createProxyMiddleware({ 
+  target: routes.tx, 
+  changeOrigin: true, 
+  pathRewrite: {
+    '^/api/notifications': '/notifications' 
   }
 }));
 

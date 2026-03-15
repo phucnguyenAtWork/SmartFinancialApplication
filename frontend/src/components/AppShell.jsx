@@ -1,7 +1,6 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { Layout } from './layout/Layout';
-import { Placeholder } from './common/Placeholder';
 import { TransactionsPage } from './transactions/TransactionsPage';
 import { AuthProvider } from './auth/AuthContext';
 import { Login } from './auth/Login';

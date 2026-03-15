@@ -2,7 +2,7 @@ import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom'; // 1. Added useNavigate
 import { SidebarLink } from '../sidebar/SidebarLink';
 import { useAuth } from '../auth/AuthContext';
-
+import { NotificationBell } from '../dashboard/NotificationBell';
 export function Layout({ children }) {
   const { pathname } = useLocation();
   const navigate = useNavigate(); // 2. Hook for redirection
@@ -11,7 +11,7 @@ export function Layout({ children }) {
 
   // 4. The Responsive Logout Handler
   const handleLogout = () => {
-    logout(); // Clear state instantly
+    logout();
     navigate('/login', { replace: true }); // Redirect immediately
   };
 
@@ -55,6 +55,7 @@ export function Layout({ children }) {
           <header className="sticky top-0 z-10 flex h-16 sm:h-20 items-center justify-between border-b bg-white px-4 sm:px-8">
             <h1 className="text-2xl font-semibold text-slate-900">Dashboard</h1>
             <div className="flex items-center gap-4">
+              <NotificationBell />
               <div className="flex items-center gap-2">
                 <img src="https://picsum.photos/id/237/200/300" alt="User" className="h-8 w-8 rounded-full" />
                 <span className="text-sm font-medium text-slate-800">{user?.name || 'Guest'}</span>

@@ -446,3 +446,103 @@ export async function deleteTransaction(req, res) {
     return res.status(500).json({ error: 'internal' });
   }
 }
+
+export const getNotifications = async (req, res, next) => {
+  try {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.set('Pragma', 'no-cache');
+    const userId = await getFinanceUserId(req);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const notifications = [];
+    let notifId = 1;
+
+    // 1. Fetch Budgets
+    let totalLimit = 0;
+    try {
+      const budgetRes = await fetch(`http://budgets:8104/?userId=${userId}`);
+      if (budgetRes.ok) {
+        const budgetData = await budgetRes.json();
+        const budgets = Array.isArray(budgetData) ? budgetData : (budgetData.budgets || []);
+        totalLimit = budgets.reduce((sum, b) => sum + Number(b.amount_limit || 0), 0);
+      }
+    } catch (err) {
+      console.warn('Failed to fetch budgets:', err.message);
+    }
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const startOfMonth = `${year}-${month}-01 00:00:00`;
+    // 2. Fetch Transactions 
+    const [transactions] = await pool.execute(
+      `SELECT * FROM transactions 
+       WHERE user_id = ? 
+       AND occurred_at >= ? 
+       ORDER BY occurred_at DESC`,
+      [userId, startOfMonth]
+    );
+
+    // 3. Calculate Expenses
+    let currentMonthExpenses = 0;
+    transactions.forEach(t => {
+      if (t.type === 'EXPENSE') currentMonthExpenses += Number(t.amount);
+    });
+
+    // 4. Generate Budget Alerts
+    if (totalLimit > 0) {
+      const spendPercent = (currentMonthExpenses / totalLimit) * 100;
+      const today = new Date();
+      const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+      const timePercent = (today.getDate() / daysInMonth) * 100;
+
+      if (spendPercent >= 100) {
+        notifications.push({
+          id: notifId++,
+          type: 'budget_danger',
+          title: 'Monthly Budget Critical!',
+          message: `You have spent ${currentMonthExpenses.toLocaleString()}đ, exceeding your limit.`,
+          timestamp: 'Just Now',
+          read: false
+        });
+      } else if (spendPercent > timePercent + 10) {
+        notifications.push({
+          id: notifId++,
+          type: 'budget_warning',
+          title: 'Burnout Ratio Alert',
+          message: `You spent ${Math.round(spendPercent)}% of your budget, but only ${Math.round(timePercent)}% of the month passed.`,
+          timestamp: 'Today',
+          read: false
+        });
+      }
+    }
+
+    // 5. Generate Large Transaction Alerts
+    transactions.slice(0, 10).forEach(t => {
+      const amount = Number(t.amount);
+      if (t.type === 'EXPENSE' && amount >= 5000000) {
+        notifications.push({
+          id: notifId++,
+          type: 'spending',
+          title: 'Large Expense Logged',
+          message: `A transaction for ${amount.toLocaleString()}đ was recorded.`,
+          timestamp: new Date(t.occurred_at).toLocaleDateString(),
+          read: false
+        });
+      } else if (t.type === 'INCOME' && amount >= 20000000) {
+        notifications.push({
+          id: notifId++,
+          type: 'income',
+          title: 'Large Income Detected',
+          message: `Income of ${amount.toLocaleString()}đ was added.`,
+          timestamp: new Date(t.occurred_at).toLocaleDateString(),
+          read: false
+        });
+      }
+    });
+
+    return res.json({ notifications });
+
+  } catch (error) {
+    next(error);
+  }
+};

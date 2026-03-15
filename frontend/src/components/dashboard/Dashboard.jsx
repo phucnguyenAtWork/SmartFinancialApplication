@@ -91,6 +91,16 @@ export function Dashboard() {
   return (
     <div className="min-h-screen bg-slate-50/50 p-6 animate-in fade-in duration-500">
 
+      {/* --- DASHBOARD HEADER --- */}
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">
+            Welcome back, {user?.name || 'Phuc'}!
+          </h1>
+          <p className="text-sm text-slate-500">Here is your financial overview.</p>
+        </div>
+      </div>
+
       {/* MAIN GRID LAYOUT */}
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         
@@ -155,8 +165,6 @@ export function Dashboard() {
 
           {/* 4. Category Donut */}
           <CategoryDonut transactions={transactions} />
-
-         
 
         </div>
       </div>

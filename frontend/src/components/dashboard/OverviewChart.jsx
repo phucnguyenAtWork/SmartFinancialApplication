@@ -2,10 +2,14 @@ import React, { useMemo } from 'react';
 
 export function OverviewChart({ data = [] }) {
   
-  const { points, areaPath, hasData } = useMemo(() => {
-    if (!data || data.length === 0) return { points: "", areaPath: "", hasData: false };
+  const { points, areaPath, hasData, sorted } = useMemo(() => {
+    if (!data || data.length === 0) return { points: "", areaPath: "", hasData: false, sorted: [] };
 
-    const values = data.map(d => Number(d.amount));
+    const sorted = [...data].sort((a, b) =>
+      new Date(a.occurred_at || a.date) - new Date(b.occurred_at || b.date)
+    );
+
+    const values = sorted.map(d => Number(d.amount));
   
     const min = Math.min(...values, 0); 
     const max = Math.max(...values, 100);
@@ -26,10 +30,9 @@ export function OverviewChart({ data = [] }) {
     }
 
     const pointsStr = coordinates.map(p => `${p[0]},${p[1]}`).join(' ');
-    
     const areaStr = `0,40 ${pointsStr} 100,40`;
 
-    return { points: pointsStr, areaPath: areaStr, hasData: true };
+    return { points: pointsStr, areaPath: areaStr, hasData: true, sorted };
   }, [data]);
 
   return (
@@ -80,17 +83,12 @@ export function OverviewChart({ data = [] }) {
         <div className="mt-2 flex justify-between px-1 text-[8px] font-medium text-slate-400 uppercase tracking-wider">
            {hasData && (
              <>
-               {/* Left Date */}
-               <span>{formatDate(data[0].date || data[0].occurred_at)}</span>
-
-               {/* Middle Date */}
-               {data.length > 2 && (
-                 <span>{formatDate(data[Math.floor(data.length / 2)].date || data[Math.floor(data.length / 2)].occurred_at)}</span>
+               <span>{formatDate(sorted[0].date || sorted[0].occurred_at)}</span>
+               {sorted.length > 2 && (
+                 <span>{formatDate(sorted[Math.floor(sorted.length / 2)].date || sorted[Math.floor(sorted.length / 2)].occurred_at)}</span>
                )}
-
-               {/* Right Date */}
-               {data.length > 1 && (
-                 <span>{formatDate(data[data.length - 1].date || data[data.length - 1].occurred_at)}</span>
+               {sorted.length > 1 && (
+                 <span>{formatDate(sorted[sorted.length - 1].date || sorted[sorted.length - 1].occurred_at)}</span>
                )}
              </>
            )}
